@@ -87,6 +87,8 @@ agent:
 # 大小限制 / 扩展名 / MIME / 访问级别 / Bucket 已迁移到 file_policy 表，按 appId+namespace 配置。
 # 本地开发种子数据中 cms 应用的明文 API Key 是 dev-only-placeholder-change-me（仅测试用）。
 cms:
+  shiro:
+    remember-me-cipher-key: ${SHIRO_REMEMBER_ME_CIPHER_KEY:hUX/qqKWzXRgojTfzxR1hw==}
   http-logging:
     enabled: true
     include-request-body: true

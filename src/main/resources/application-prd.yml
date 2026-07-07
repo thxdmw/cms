@@ -73,6 +73,8 @@ agent:
 # App / API Key / Scope 由 file_app 表管理（api_key_hash 为 SHA-256 哈希），生产环境请通过运维流程轮换；
 # 大小限制 / 扩展名 / MIME / 访问级别 / Bucket 由 file_policy 表管理。
 cms:
+  shiro:
+    remember-me-cipher-key: ${SHIRO_REMEMBER_ME_CIPHER_KEY}
   http-logging:
     enabled: true
     include-request-body: false

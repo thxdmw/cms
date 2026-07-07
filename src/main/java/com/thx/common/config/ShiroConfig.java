@@ -34,6 +34,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 
 import javax.annotation.PostConstruct;
 import javax.servlet.Filter;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,6 +52,9 @@ public class ShiroConfig {
 
     @Value("${spring.cache.type:none}")
     private CacheType cacheType;
+
+    @Value("${cms.shiro.remember-me-cipher-key}")
+    private String rememberMeCipherKey;
 
     @Lazy
     @Autowired
@@ -138,6 +142,11 @@ public class ShiroConfig {
     public RememberMeManager rememberMeManager() {
         CookieRememberMeManager cookieRememberMeManager = new CookieRememberMeManager();
         cookieRememberMeManager.setCookie(rememberMeCookie());
+        byte[] cipherKey = Base64.getDecoder().decode(rememberMeCipherKey);
+        if (cipherKey.length != 16 && cipherKey.length != 24 && cipherKey.length != 32) {
+            throw new IllegalArgumentException("cms.shiro.remember-me-cipher-key must decode to a 16, 24, or 32 byte AES key");
+        }
+        cookieRememberMeManager.setCipherKey(cipherKey);
         return cookieRememberMeManager;
     }
 
