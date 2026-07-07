@@ -1,0 +1,86 @@
+<nav id="navbar" th:fragment="navbar" class="navbar navbar-default ">
+    <div class="pb-container">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+							<span class="sr-only">
+								导航
+							</span>
+                <span class="icon-bar">
+							</span>
+                <span class="icon-bar">
+							</span>
+                <span class="icon-bar">
+							</span>
+            </button>
+            <a class="logo-a" th:href="@{/}">
+                <img th:src="${SITE_CONFIG['SITE_LOGO'] ?: '/img/logo.ico'}" alt="logo"/>
+            </a>
+            <a class="logo-a" href="https://tools.thxdxw.cn" target="_blank">
+                <img src="https://tools.thxdxw.cn/favicon.ico" alt="logo" title="工具合集"/>
+            </a>
+        </div>
+        <div class="collapse navbar-collapse navbar-right" aria-expanded="false">
+            <ul class="nav navbar-nav">
+                <li th:class="${categoryId=='index' ? 'active' : ''} ">
+                    <a th:href="@{/}">
+                        首页
+                    </a>
+                </li>
+                <li th:each="category:${CATEGORY_LIST}"
+                    th:class="${category.id==categoryId ? 'active':(#lists.isEmpty(category.children)?'':'dropdown')}">
+                    <a th:if="${category.pid==null||category.pid==0}"
+                       th:href="@{${not #lists.isEmpty(category.children)? '#': ('/blog/category/' + category.id)}}"
+                       th:class="${#lists.isEmpty(category.children)?'':'dropdown-toggle'}"
+                       th:data-toggle="${#lists.isEmpty(category.children)?'':'dropdown'}">
+                        <span th:text="${category.name}"></span>
+                        <b th:if="${not #lists.isEmpty(category.children)}" class="caret"></b>
+                    </a>
+                    <ul th:if="${not #lists.isEmpty(category.children)}" class="dropdown-menu">
+                        <li th:each="node:${category.children}"><a th:href="@{${'/blog/category/' + node.id}}"
+                                                                   th:text="${node.name}"></a></li>
+                    </ul>
+
+                </li>
+                <li class="">
+                    <a th:href="@{/blog/comment}" th:class="${categoryId=='comment' ? 'active' : ''} ">
+                        留言板
+                    </a>
+                </li>
+                <!-- 搜索按钮 -->
+                <li>
+                    <a href="javascript:void(0);" onclick="openSearchModal()">
+                        <i class="fa fa-search search-btn"></i>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <!-- 搜索 Modal -->
+    <div id="searchModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:9999;">
+        <div style="position:relative; width:100%; max-width:700px; margin:40px auto 0; padding:20px; background:#fff; border-radius:8px;" class="hover-shadow">
+
+            <button aria-label="关闭"
+                    onclick="closeSearchModal()"
+                    style="position: absolute;top: 0px;right: 0px;background: none;border: none;color: rgb(153, 153, 153);font-size: 20px;font-weight: bold;cursor: pointer;"
+                    onmouseover="this.style.color='#ff4d4f'"
+                    onmouseout="this.style.color='#999'">
+                &times;
+            </button>
+
+            <form id="searchForm" onsubmit="return doSearch()" style="margin-bottom:10px;">
+                <input id="searchInput" type="text" placeholder="输入关键词搜索文章..." autocomplete="off"
+                       style="width:100%; padding:14px 18px; font-size:18px; border:1px solid #ccc; border-radius:5px;">
+                <button type="submit"
+                        style="margin-top:10px; width:100%; padding:12px; font-size:18px; background:#337ab7; color:#fff; border:none; border-radius:5px;">
+                    搜索
+                </button>
+            </form>
+
+            <div id="searchResults" style="max-height:400px; overflow-y:auto; border-top:1px solid #eee; padding-top:10px;">
+                <!-- 搜索结果这里展示 -->
+            </div>
+        </div>
+    </div>
+    <script th:src="@{/js/search-box.js}"></script>
+</nav>
+

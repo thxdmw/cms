@@ -1,0 +1,22 @@
+/* 页面淡入动画 */
+/*body {*/
+/*    opacity: 0;*/
+/*    transition: opacity 0.4s ease;*/
+/*}*/
+
+/*body.page-loaded {*/
+/*    opacity: 1;*/
+/*}*/
+
+/*#content-with-bg {*/
+/*    opacity: 0;*/
+/*    transition: opacity 0.4s ease;*/
+/*}*/
+
+/*#content-with-bg.page-loaded {*/
+/*    opacity: 1;*/
+/*}*/
+
+html {
+    overflow-y: scroll; /* 总是显示滚动条占位 */
+}

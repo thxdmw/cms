@@ -1,0 +1,116 @@
+spring:
+  cache:
+    # 可根据此配置，自由选择是否使用redis：配置为redis则启用redis缓存，配置为none时则禁用缓存。
+    type: redis
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driverClassName: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/cms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+    druid:
+# ===== Druid 监控页面（可选，生产建议内网）=====
+      stat-view-servlet:
+        enabled: true
+        url-pattern: /druid/*
+        login-username: ${DRUID_STAT_USERNAME:druid}
+        login-password: ${DRUID_STAT_PASSWORD:123456}
+        allow:
+        deny:
+  redis:
+    host: localhost
+    port: 6379
+    password:
+    timeout: 5000
+  devtools:
+    restart:
+      enabled: true
+    livereload:
+      enabled: true
+
+  #qq邮箱
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: 2789399494@qq.com
+    # 已提交到 Git 历史的授权码 ckvughdqgnxldefi 已泄漏，必须到 QQ 邮箱后台重新生成，此处只能通过环境变量注入
+    password: ${MAIL_PASSWORD}
+    protocol: smtp
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+server:
+  servlet:
+    context-path: /
+
+file:
+  #上传的文件对外暴露的访问路径
+  access-path-pattern: /cms/**
+  #文件上传目录
+  upload-folder: /app/cms/file/
+  #文件预览、下载的访问路径前缀
+  access-prefix-url: http://localhost:${server.port}/cms
+
+static:
+  folder: D://your/html/path
+
+#配置可信域名
+websocket:
+  #allowedOrigins: [http://localhost,1] #@ConfigurationProperties方式
+  allowedOrigins: http://localhost,http://localhost #@Value方式
+
+#跨域配置
+cors:
+  allowed-origin-patterns:
+    - "http://localhost:*"
+
+#python服务
+python:
+  server:
+    url: http://localhost:8000
+
+# Agent API 安全配置
+# 已泄漏的旧 Key（Bwa91f1TD3L6eZ）已从仓库移除，必须人工轮换后通过环境变量注入
+agent:
+  api:
+    key: ${AGENT_API_KEY:dev-only-placeholder-change-me}
+    # 是否启用 API Key 认证
+    enabled: true
+
+# 文件系统配置
+# App / API Key / Scope 已迁移到 file_app 表（api_key_hash 为 SHA-256 哈希），不再通过配置文件下发；
+# 大小限制 / 扩展名 / MIME / 访问级别 / Bucket 已迁移到 file_policy 表，按 appId+namespace 配置。
+# 本地开发种子数据中 cms 应用的明文 API Key 是 dev-only-placeholder-change-me（仅测试用）。
+cms:
+  http-logging:
+    enabled: true
+    include-request-body: true
+    include-response-body: true
+    max-payload-length: 8192
+  file-system:
+    enabled: true
+    # 必须是能从浏览器访问到的地址（不能填内网/容器内地址），
+    # 拼接 PUBLIC 直链和生成私有文件 Presigned URL 都用这个作为 host，
+    # 和下面 storage.minio.endpoint（内网、只给服务器自己上传用）是两回事
+    public-domain: ${MINIO_PUBLIC_DOMAIN:http://localhost:9000}
+    presigned-url-expire-seconds: 3600
+    cleanup:
+      enabled: true
+      grace-days: 7
+      max-retry-count: 10
+    storage:
+      provider: MINIO
+      # 本地开发不强制要求有可用的 MinIO 服务，关闭启动校验，避免开发机没有 MinIO 时无法启动
+      validate-on-startup: false
+      # 仅开发环境方便起见自动创建 Bucket，生产环境必须为 false
+      auto-create-bucket: true
+      minio:
+        # 本地开发默认指向本机 MinIO，真实环境必须通过环境变量覆盖
+        endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+        access-key: ${MINIO_ACCESS_KEY:minioadmin}
+        secret-key: ${MINIO_SECRET_KEY:minioadmin}

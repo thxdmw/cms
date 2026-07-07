@@ -1,0 +1,19 @@
+package com.thx.module.admin.vo.base;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import java.util.List;
+
+/**
+ * @author tanghaixin
+ * @version V1.0
+ * @date 2019年9月11日
+ */
+@Data
+@AllArgsConstructor
+public class PageResultVo {
+    private List rows;
+    private Long total;
+
+}

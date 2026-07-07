@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>后台管理</title>
+    <link rel="stylesheet" href="/admin-app/libs/element-plus/index.css"/>
+    <link rel="stylesheet" href="/libs/editor.md/css/editormd.min.css"/>
+    <link rel="stylesheet" href="/admin-app/libs/fontawesome/css/all.min.css"/>
+    <style>
+        html, body, #app { height: 100%; margin: 0; }
+        .admin-boot-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #909399; }
+        .admin-shell { height: 100%; }
+        /* admin-topbar-outer 是 AdminLayout 里的 el-header（纯布局壳）；
+           admin-topbar 是 TopBar.js 组件内部真正做 flex 排布的那一层——
+           两者之前意外共用了同一个 class 名，el-header 会被一起套上 display:flex，
+           虽然因为只有一个子元素暂时看不出问题，但容易在以后引发选择器歧义，这里拆开 */
+        .admin-topbar-outer { background: #fff; border-bottom: 1px solid #e4e7ed; }
+        .admin-topbar { display: flex; align-items: center; justify-content: space-between; }
+        .admin-brand { font-size: 18px; font-weight: 600; color: #303133; }
+        .admin-user { display: flex; align-items: center; gap: 12px; color: #606266; }
+        .log-info { color: #047c39; }
+        .log-warn { color: #ffc107; }
+        .log-error { color: #dc3545; }
+        .keyword-highlight { background-color: yellow; font-weight: bold; }
+        .icon-picker-panel {
+            position: absolute; top: calc(100% + 4px); right: 0; z-index: 2100;
+            background: #fff; border: 1px solid #e4e7ed; border-radius: 4px;
+            box-shadow: 0 2px 12px 0 rgba(0,0,0,.1); padding: 8px;
+        }
+        .icon-picker-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; max-height: 260px; overflow-y: auto; width: 320px; }
+        .icon-picker-item { text-align: center; padding: 8px 4px; border-radius: 4px; cursor: pointer; font-size: 16px; color: #606266; }
+        .icon-picker-item:hover { background: #f5f7fa; }
+        .icon-picker-item.is-active { background: #ecf5ff; color: #409eff; }
+        /* Editor.md 自带的"关闭预览"按钮默认应该是隐藏的（editormd.css 里 display:none），
+           这里用比它更高的选择器优先级兜底，防止被其它样式表意外覆盖；
+           注意不能加 !important——Editor.md 自己是用 jQuery .show()/.hide() 切换内联 style
+           来控制真正的显示/隐藏，!important 会连它自己的正常切换逻辑一起废掉 */
+        #editor-md .editormd-preview-close-btn { display: none; }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "vue": "/blog-app/libs/vue/vue.esm-browser.prod.js",
+            "vue-router": "/blog-app/libs/vue/vue-router.esm-browser.js",
+            "element-plus": "/admin-app/libs/element-plus/index.full.js"
+        }
+    }
+    </script>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- jQuery：Editor.md 的依赖链（jquery.flowchart.min.js）硬依赖 jQuery，不会有 Vue 组件自己写 jQuery 代码 -->
+<script src="/js/jquery.min.js"></script>
+<!-- Editor.md 及其依赖（markdown 编辑器，文章新增/编辑表单用），跟博客前端用的是同一份 vendor 文件 -->
+<script src="/libs/editor.md/lib/underscore.min.js"></script>
+<script src="/libs/editor.md/lib/flowchart.min.js"></script>
+<script src="/libs/editor.md/lib/jquery.flowchart.min.js"></script>
+<script src="/libs/editor.md/lib/marked.min.js"></script>
+<script src="/libs/editor.md/lib/prettify.min.js"></script>
+<script src="/libs/editor.md/lib/raphael.min.js"></script>
+<script src="/libs/editor.md/lib/sequence-diagram.min.js"></script>
+<script src="/libs/editor.md/editormd.min.js"></script>
+
+<script type="module" src="/admin-app/js/app.js"></script>
+</body>
+</html>

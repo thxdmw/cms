@@ -1,0 +1,10 @@
+/* 可复用的阴影悬停效果 */
+.hover-shadow {
+    transition: box-shadow 0.5s ease, transform 0.5s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08); /* 默认轻微阴影 */
+}
+
+.hover-shadow:hover {
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    transform: translateY(-4px);
+}

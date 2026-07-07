@@ -1,0 +1,102 @@
+spring:
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driverClassName: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    druid:
+      stat-view-servlet:
+        enabled: true
+        url-pattern: /druid/*
+        login-username: ${DRUID_STAT_USERNAME}
+        login-password: ${DRUID_STAT_PASSWORD}
+        allow:
+        deny:
+  redis:
+    host: ${SPRING_REDIS_HOST}
+    port: ${SPRING_REDIS_PORT}
+    password: ${SPRING_REDIS_PASSWORD}
+    timeout: 5000
+    jedis:
+      pool:
+        max-idle: 8
+        min-idle: 0
+        max-active: 8
+        max-wait: -1
+    database: 6
+  mail:
+    host: smtp.qq.com
+    port: 587
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    protocol: smtp
+    default-encoding: UTF-8
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
+file:
+  #上传的文件对外暴露的访问路径
+  access-path-pattern: /app/cms/file/**
+  #文件上传目录（Docker 容器内路径）
+  upload-folder: /app/cms/file/
+  #文件预览、下载的访问路径前缀（根据实际情况修改域名）
+  access-prefix-url: https://cms.thxdxw.cn/app/cms/file/
+
+#  配置可信域名
+websocket:
+  allowedOrigins: https://cms.thxdmw.site,https://cms.thxdxw.cn
+
+#跨域配置
+cors:
+  allowed-origin-patterns:
+    - "https://thxdxw.cn"
+    - "https://*.thxdxw.cn"
+
+#python服务
+python:
+  server:
+    url: http://localhost:8000
+
+# Agent API 安全配置（生产环境）
+agent:
+  api:
+    key: ${AGENT_API_KEY}
+    enabled: true
+
+# 文件系统配置
+# App / API Key / Scope 由 file_app 表管理（api_key_hash 为 SHA-256 哈希），生产环境请通过运维流程轮换；
+# 大小限制 / 扩展名 / MIME / 访问级别 / Bucket 由 file_policy 表管理。
+cms:
+  http-logging:
+    enabled: true
+    include-request-body: false
+    include-response-body: false
+    max-payload-length: 4096
+  file-system:
+    enabled: true
+    # 必须是外部客户端（浏览器/App）能直接访问到的地址，不能填内网地址：
+    # 既用于拼接 PUBLIC 文件直链，也用于生成私有文件 Presigned URL 的 host。
+    # 如果 MinIO 只在内网，需要额外做反向代理/端口暴露把这个地址对外开放，
+    # 且反向代理必须原样转发 Host 请求头，否则预签名验证会失败。
+    public-domain: ${MINIO_PUBLIC_DOMAIN}
+    presigned-url-expire-seconds: 3600
+    cleanup:
+      enabled: true
+      grace-days: 7
+      max-retry-count: 10
+    storage:
+      provider: MINIO
+      validate-on-startup: true
+      # 生产环境禁止由 Java 应用创建 Bucket，必须由部署脚本预先创建
+      auto-create-bucket: false
+      minio:
+        # 内网地址即可，只用于服务器自己上传/删除/校验 Bucket，越快越好
+        endpoint: ${MINIO_ENDPOINT}
+        access-key: ${MINIO_ACCESS_KEY}
+        secret-key: ${MINIO_SECRET_KEY}

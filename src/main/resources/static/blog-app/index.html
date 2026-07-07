@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta id="meta-keywords" name="keywords" content="">
+    <meta id="meta-description" name="description" content="">
+    <title id="page-title">加载中...</title>
+    <link rel="stylesheet" href="/libs/bootstrap/bootstrap.min.css"/>
+    <link rel="stylesheet" href="/blog-app/libs/theme/pblog/css/jquery.pagination.css"/>
+    <link rel="stylesheet" href="/blog-app/libs/swiper/css/swiper.min.css"/>
+    <link rel="stylesheet" href="/blog-app/libs/font-icon/icon.css"/>
+    <link rel="stylesheet" href="/libs/theme/pblog/css/web-common.css"/>
+    <link rel="stylesheet" href="/blog-app/libs/theme/pblog/css/web-blog.css"/>
+    <link rel="stylesheet" href="/libs/editor.md/css/editormd.min.css"/>
+    <link rel="stylesheet" href="/blog-app/libs/markdown/simplemde.min.css"/>
+    <link rel="stylesheet" href="/css/hover-shadow.css"/>
+    <link rel="stylesheet" href="/css/content-bg.css"/>
+    <link rel="stylesheet" href="/blog-app/css/sidebar.css"/>
+    <style>
+        /* 代码块复制按钮（原 article.html 内联样式） */
+        .code-container { position: relative; }
+        .copy-btn {
+            position: absolute; top: 8px; right: 8px; font-size: 12px; padding: 4px 8px;
+            background: #409eff; color: #fff; border: none; border-radius: 4px;
+            cursor: pointer; z-index: 10; opacity: 0; transition: opacity 0.2s ease;
+        }
+        .code-container:hover .copy-btn { opacity: 1; }
+        #editor-md-preview ol, #editor-md-preview ul, #editor-md-preview li { list-style: disc; }
+        /* 目录（原 catalogue.html 内联样式）。
+           用显式 top 而不是 margin-top：position:fixed 在 top 是 auto 时，垂直位置由元素在
+           文档流里的"静态位置"决定，会受周围布局（margin 折叠、DOM 嵌套层级等）影响而漂移，
+           这个坑已经踩过两次了；显式写 top 让位置完全独立于周围布局，一劳永逸 */
+        #tocToggleBtn { display: none; }
+        .article-toc-container {
+            position: fixed; top: 75px; left: 35px; width: 200px;
+            max-height: calc(100vh - 150px); background: #fff; border: 1px solid #ddd;
+            border-radius: 12px; padding: 0; overflow: hidden; z-index: 10;
+        }
+        .article-toc { padding: 10px; max-height: calc(100vh - 150px); overflow-y: auto; -ms-overflow-style: none; scrollbar-width: none; }
+        .article-toc::-webkit-scrollbar { display: none; }
+        .toc-list li { margin: 5px 0; }
+        .toc-list a { color: #383838; font-size: 14px; }
+        .toc-list a:hover { text-decoration: underline; }
+        .toc-list ul { transition: height 0.3s ease-in-out; overflow: hidden; }
+        @media (max-width: 768px) {
+            .article-toc-container { display: none; }
+            #tocToggleBtn { display: block; }
+            .article-toc-toggle {
+                position: absolute; top: 10px; right: 10px; background: rgb(0, 119, 221);
+                color: #fff; padding: 6px 10px; font-size: 14px; border-radius: 6px;
+                cursor: pointer; user-select: none; z-index: 20; transition: background 0.3s ease;
+            }
+        }
+        /* 侧边栏跟随滚动固定：原来用 hc-sticky.js（命令式库，为整页刷新设计，SPA 里跨路由
+           内容高度变化会跟不上，之前出过好几次 bug），改用 CSS 原生 position:sticky。
+           position:sticky 在浮动布局里的实现在部分浏览器上不够可靠，所以把两栏排布方式从浮动
+           换成 flex（sticky 在 flex 子元素上的支持最标准）；.pb-main/.pb-sidebar 的宽度/内边距
+           沿用 web-blog.css 里原有的规则不动，这里只覆盖 float/display，视觉宽度和原来一致。
+           #content-with-bg 设置了 overflow:hidden（content-bg.css 里，用来给 ::before 装饰性
+           背景图定位，该伪元素本身就是 100%/100% 贴合父容器，并不会真的溢出，这条 overflow 规则
+           对它其实不是必须的）——但 position:sticky 的吸顶计算是相对于"最近的、非 visible
+           overflow 祖先"生效的，而不是相对于视口；#content-with-bg 本身并不是真正滚动的那个
+           元素（滚动的是外层 document），所以只要它有非 visible 的 overflow，就会让 sticky
+           的参照系变成一个不会独立滚动的容器，导致 sticky 完全不触发。这里用 id 选择器把它
+           覆盖回 visible（id 选择器优先级天然高于 content-bg.css 里的 class 选择器） */
+        @media (min-width: 1024px) {
+            #content-with-bg { overflow: visible; }
+            .pb-content { display: flex; align-items: flex-start; }
+            .pb-main { float: none; flex-shrink: 0; }
+            .pb-sidebar { float: none; flex-shrink: 0; position: sticky; top: 0; }
+        }
+        /* 标签云：原来用 tagcloud.js 做 3D 旋转效果，改成纯 CSS 悬停位移，
+           跟 sidebar.css/jquery.pagination.css 里已有的 translateY 悬浮阴影是同一套视觉语言 */
+        #tagcloud a.btn { display: inline-block; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        #tagcloud a.btn:hover { transform: translateY(-2px) scale(1.08); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+
+        /* 轮播图固定高度容器，防止图片加载失败时高度坍塌 */
+        .slider-img-wrapper {
+            position: relative;
+            width: 100%;
+            height: 450px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .slider-img-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.3s ease;
+        }
+        .slider-img-wrapper img.img-error {
+            opacity: 0.6;
+            filter: grayscale(50%);
+        }
+        .slider-img-wrapper .slider-title {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 20px 40px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            font-size: 20px;
+            margin: 0;
+            z-index: 2;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "vue": "/blog-app/libs/vue/vue.esm-browser.prod.js",
+            "vue-router": "/blog-app/libs/vue/vue-router.esm-browser.js"
+        }
+    }
+    </script>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- jQuery 与遗留第三方库：Vue 组件在 onMounted 里命令式调用这些库，不重写 -->
+<script src="/js/jquery.min.js"></script>
+<script src="/blog-app/libs/swiper/js/swiper.min.js"></script>
+<script src="/libs/layer/layer.js"></script>
+<script src="/blog-app/libs/markdown/simplemde.min.js"></script>
+<!-- Editor.md 及其依赖，仅用于把 Markdown 渲染成只读 HTML -->
+<script src="/libs/editor.md/lib/underscore.min.js"></script>
+<script src="/libs/editor.md/lib/flowchart.min.js"></script>
+<script src="/libs/editor.md/lib/jquery.flowchart.min.js"></script>
+<script src="/libs/editor.md/lib/marked.min.js"></script>
+<script src="/libs/editor.md/lib/prettify.min.js"></script>
+<script src="/libs/editor.md/lib/raphael.min.js"></script>
+<script src="/libs/editor.md/lib/sequence-diagram.min.js"></script>
+<script src="/libs/editor.md/editormd.min.js"></script>
+
+<script type="module" src="/blog-app/js/app.js"></script>
+</body>
+</html>
