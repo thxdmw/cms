@@ -7,9 +7,7 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 角色与权限的多对多关联表。
  */
 @Data
 public class RolePermission implements Serializable {

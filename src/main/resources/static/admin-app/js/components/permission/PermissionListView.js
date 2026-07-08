@@ -2,7 +2,7 @@ import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
 import { buildTree } from '../../tree.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 import IconPicker from '../common/IconPicker.js';
 
 const TYPE_LABELS = { 0: '目录', 1: '菜单', 2: '按钮' };
@@ -125,7 +125,7 @@ export default {
         onMounted(load);
 
         return {
-            treeData, parentTreeData, loading, typeLabel, TYPE_TAG_TYPE,
+            store, treeData, parentTreeData, loading, typeLabel, TYPE_TAG_TYPE,
             dialogVisible, dialogTitle, saving, isEdit, form,
             openAdd, openEdit, save, removeNode, hasPerm
         };
@@ -152,10 +152,21 @@ export default {
                 </el-table-column>
                 <el-table-column prop="orderNum" label="排序" align="center" width="70"></el-table-column>
                 <el-table-column prop="description" label="权限描述" align="center"></el-table-column>
-                <el-table-column label="操作" align="center" width="150">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 150">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('permission:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
-                        <el-button v-if="hasPerm('permission:delete')" size="small" type="danger" @click="removeNode(row)">删除</el-button>
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('permission:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
+                            <el-button v-if="hasPerm('permission:delete')" size="small" type="danger" @click="removeNode(row)">删除</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('permission:edit')" @click="openEdit(row)">编辑</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('permission:delete')" @click="removeNode(row)" divided>删除</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

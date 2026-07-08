@@ -14,9 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 友情链接服务实现。
  */
 @Service
 @AllArgsConstructor
@@ -24,12 +22,14 @@ public class BizLinkServiceImpl extends ServiceImpl<BizLinkMapper, BizLink> impl
 
     private final BizLinkMapper linkMapper;
 
+    /** 查询全部友链（不分页），缓存固定 key "list"。 */
     @Override
     @Cacheable(value = "link", key = "'list'")
     public List<BizLink> selectLinks(BizLink bizLink) {
         return linkMapper.selectLinks(null, bizLink);
     }
 
+    /** 分页查询友链列表（不走缓存）。 */
     @Override
     public IPage<BizLink> pageLinks(BizLink bizLink, Integer pageNumber, Integer pageSize) {
         IPage<BizLink> page = new Pagination<>(pageNumber, pageSize);
@@ -37,6 +37,7 @@ public class BizLinkServiceImpl extends ServiceImpl<BizLinkMapper, BizLink> impl
         return page;
     }
 
+    /** 批量删除友链，成功后清空友链缓存。 */
     @Override
     @CacheEvict(value = "link", allEntries = true)
     public int deleteBatch(String[] ids) {

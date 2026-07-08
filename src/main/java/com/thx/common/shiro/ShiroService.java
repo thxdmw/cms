@@ -19,11 +19,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 初始化、动态更新shiro用户权限
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 组装并动态刷新 Shiro 的过滤器链规则：一部分是写死的匿名放行路径（静态资源、登录页等），
+ * 另一部分是从数据库 Permission 表读出来、按 perms 权限标识动态生成的规则。
+ * updatePermission() 允许在权限数据变更后（如新增菜单/修改权限标识）不重启应用就让规则生效，
+ * 做法是直接操作 Shiro 内部的 FilterChainManager 重新构建过滤器链。
  */
 @Service
 @AllArgsConstructor

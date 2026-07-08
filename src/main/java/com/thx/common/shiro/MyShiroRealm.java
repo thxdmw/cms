@@ -32,11 +32,12 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.*;
 
 /**
- * 自定义shiro realm，进行鉴权和认证
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 自定义 Shiro Realm：登录时校验用户名密码（doGetAuthenticationInfo），
+ * 访问受限资源时提供角色/权限信息（doGetAuthorizationInfo）。
+ * 另外提供两个主动清缓存的方法，供用户管理页在"修改密码/重新分配角色"后调用，
+ * 让正在登录中的该用户下次鉴权时读取到最新的密码/权限，而不用等缓存自然过期：
+ * removeCachedAuthenticationInfo 清认证缓存（密码变了），
+ * clearAuthorizationByUserId 清授权缓存（角色/权限变了）。
  */
 @Component
 public class MyShiroRealm extends AuthorizingRealm {

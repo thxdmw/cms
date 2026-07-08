@@ -39,6 +39,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * FileSystemServiceImpl 核心门面测试
+ * 覆盖上传成功、OWNER_ONLY 缺少 ownerId 拒绝、对象存储写入失败的传播、
+ * 元数据写入失败后的补偿删除（含补偿删除本身也失败时登记清理任务）、
+ * 以及删除接口的幂等性（ACTIVE 才真正触发软删除，其余状态视为幂等成功）
+ */
 @ExtendWith(MockitoExtension.class)
 class FileSystemServiceImplTest {
 
@@ -67,6 +73,7 @@ class FileSystemServiceImplTest {
                 fileUrlService, fileCleanupService, fileAuditService, objectStorageClient, fileAssetMapper);
     }
 
+    /** 构造测试用的调用方上下文，固定为 cms/user-1，仅拥有 UPLOAD Scope */
     private FileCallerContext caller() {
         FileCallerContext ctx = new FileCallerContext();
         ctx.setAppId("cms");
@@ -76,11 +83,13 @@ class FileSystemServiceImplTest {
         return ctx;
     }
 
+    /** 构造一个 PUBLIC 访问级别的文件策略 */
     private FilePolicy publicPolicy() {
         return new FilePolicy().setPolicyCode("PUBLIC_IMAGE").setMaxFileSize(1000L)
                 .setAccessLevel("PUBLIC").setBucket("public-assets").setStatus(1);
     }
 
+    /** 构造一个 OWNER_ONLY 访问级别的文件策略 */
     private FilePolicy ownerOnlyPolicy() {
         return new FilePolicy().setPolicyCode("PRIVATE_FILE").setMaxFileSize(1000L)
                 .setAccessLevel("OWNER_ONLY").setBucket("private-files").setStatus(1);

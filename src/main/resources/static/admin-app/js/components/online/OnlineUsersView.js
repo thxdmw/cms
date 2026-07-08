@@ -1,7 +1,7 @@
 import { onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 
 export default {
     setup() {
@@ -53,7 +53,7 @@ export default {
         onMounted(load);
 
         return {
-            onlineUsers, total, loading, username, pageNumber, pageSize,
+            store, onlineUsers, total, loading, username, pageNumber, pageSize,
             search, reset, onPageChange, onSizeChange, onSelectionChange,
             kickoutOne, kickoutBatch, hasPerm
         };
@@ -83,9 +83,19 @@ export default {
                 <el-table-column label="最后访问时间" align="center">
                     <template #default="{row}">{{ row.lastAccess ? new Date(row.lastAccess).toLocaleString() : '' }}</template>
                 </el-table-column>
-                <el-table-column label="操作" align="center" width="120">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 120">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('onlineUser:kickout')" size="small" type="danger" @click="kickoutOne(row)">强制下线</el-button>
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('onlineUser:kickout')" size="small" type="danger" @click="kickoutOne(row)">强制下线</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('onlineUser:kickout')" @click="kickoutOne(row)">强制下线</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

@@ -24,14 +24,17 @@ public class FileSystemException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
+    /** 快捷构造 404 资源未找到异常 */
     public static FileSystemException notFound(String message) {
         return new FileSystemException(404, "FILE_NOT_FOUND", message);
     }
 
+    /** 快捷构造 403 访问被拒绝异常 */
     public static FileSystemException forbidden(String message) {
         return new FileSystemException(403, "ACCESS_DENIED", message);
     }
 
+    /** 快捷构造 400 请求参数错误异常，errorCode 由调用方指定，便于区分不同的校验失败原因 */
     public static FileSystemException badRequest(String errorCode, String message) {
         return new FileSystemException(400, errorCode, message);
     }

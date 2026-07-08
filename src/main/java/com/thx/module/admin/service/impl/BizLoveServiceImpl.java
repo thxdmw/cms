@@ -8,9 +8,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 点赞服务实现。
  */
 @Service
 @AllArgsConstructor
@@ -18,6 +16,7 @@ public class BizLoveServiceImpl extends ServiceImpl<BizLoveMapper, BizLove> impl
 
     private final BizLoveMapper loveMapper;
 
+    /** 按业务对象 id + 用户 IP 查询点赞记录，判断是否已点过赞。 */
     @Override
     public BizLove checkLove(String bizId, String userIp) {
         return loveMapper.checkLove(bizId, userIp);

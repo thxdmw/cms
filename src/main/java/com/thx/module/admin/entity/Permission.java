@@ -11,9 +11,8 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 权限/菜单节点，通过 parentId 组织成树形结构，同时承担"目录/菜单/按钮"三种层级（见 type 字段）：
+ * 目录和菜单构成后台侧边栏导航，按钮级权限则用于页面内的操作按钮显隐控制（配合 perms 权限标识）。
  */
 @Data
 @Accessors(chain = true)

@@ -6,11 +6,12 @@ import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
 
 /**
- * 分页对象
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 分页对象，在 MyBatis-Plus {@link Page} 的基础上扩展了页面展示常用的分页信息
+ * （总页数、上/下一页页码、是否首末页等），避免前端每次都要基于 current/pages 自行推算。
+ * <p>
+ * 这些扩展字段并非在构造时就有效，而是依赖 {@link #setTotal(long)} 被调用后才会
+ * 被重新计算——MyBatis-Plus 分页插件在查询完成后会调用 setTotal 回填总记录数，
+ * 因此本类重写该方法，"顺便"把衍生字段一起算好，调用方无需手动维护。
  */
 @Data
 @Accessors(chain = true)
@@ -40,6 +41,13 @@ public class Pagination<T> extends Page<T> {
     //是否有下一页
     private boolean hasNextPage;
 
+    /**
+     * 重写父类 setTotal：在设置总记录数的同时，联动重新计算总页数、上/下一页页码、
+     * 是否首末页等衍生字段，由 MyBatis-Plus 分页插件在查询完成后自动回调。
+     *
+     * @param total 总记录数
+     * @return 当前分页对象本身，便于链式调用
+     */
     @Override
     public Pagination<T> setTotal(long total) {
         super.setTotal(total);

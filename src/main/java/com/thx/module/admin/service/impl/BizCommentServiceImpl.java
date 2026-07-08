@@ -11,9 +11,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 文章评论服务实现，支持楼中楼（父子评论）结构。
  */
 @Service
 @AllArgsConstructor
@@ -21,6 +19,7 @@ public class BizCommentServiceImpl extends ServiceImpl<BizCommentMapper, BizComm
 
     private final BizCommentMapper commentMapper;
 
+    /** 按条件分页查询评论列表（关联父评论、文章标题、点赞数）。 */
     @Override
     public IPage<BizComment> selectComments(CommentConditionVo vo, Integer pageNumber, Integer pageSize) {
         IPage<BizComment> page = new Pagination<>(pageNumber, pageSize);
@@ -28,6 +27,7 @@ public class BizCommentServiceImpl extends ServiceImpl<BizCommentMapper, BizComm
         return page;
     }
 
+    /** 批量删除评论及其直接子评论（回复）。 */
     @Override
     public int deleteBatch(String[] ids) {
         return commentMapper.deleteBatch(ids);

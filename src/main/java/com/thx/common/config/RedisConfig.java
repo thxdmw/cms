@@ -24,11 +24,10 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import java.time.Duration;
 
 /**
- * Redis缓存时间、序列化、反序列化等配置
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * Spring Cache 的 Redis 缓存配置：统一缓存过期时间（30 天）、key 前缀，
+ * 以及用 Jackson 而非 JDK 默认序列化来存储缓存值（可读性更好，跨语言/跨版本兼容性更强）。
+ * 只有 {@code spring.cache.type=redis} 时才生效（{@link ConditionalOnProperty}），
+ * 关闭 Redis 缓存时 Spring 会退回到 no-op 的 NoOpCacheManager。
  */
 @ConditionalOnProperty(prefix = "spring.cache", value = "type", havingValue = "redis", matchIfMissing = true)
 @Configuration

@@ -56,25 +56,25 @@ export default {
     template: `
     <div>
         <el-row :gutter="16" style="margin-bottom:16px;">
-            <el-col :span="6">
+            <el-col :xs="12" :sm="6">
                 <el-card style="background:#17a2b8; color:#fff;">
                     <div style="font-size:28px; font-weight:600;">{{ statistic.articleCount }}</div>
                     <div>文章数量</div>
                 </el-card>
             </el-col>
-            <el-col :span="6">
+            <el-col :xs="12" :sm="6">
                 <el-card style="background:#28a745; color:#fff;">
                     <div style="font-size:28px; font-weight:600;">{{ statistic.commentCount }}</div>
                     <div>评论数量</div>
                 </el-card>
             </el-col>
-            <el-col :span="6">
+            <el-col :xs="12" :sm="6">
                 <el-card style="background:#ffc107; color:#fff;">
                     <div style="font-size:28px; font-weight:600;">{{ statistic.lookCount }}</div>
                     <div>访问次数</div>
                 </el-card>
             </el-col>
-            <el-col :span="6">
+            <el-col :xs="12" :sm="6">
                 <el-card style="background:#dc3545; color:#fff;">
                     <div style="font-size:28px; font-weight:600;">{{ statistic.userCount }}</div>
                     <div>访问人数</div>

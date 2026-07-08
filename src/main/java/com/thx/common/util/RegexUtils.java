@@ -9,18 +9,16 @@ import java.util.regex.Pattern;
 
 /**
  * 正则工具类
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
  */
 @UtilityClass
 public class RegexUtils {
 
     /**
-     * @param regex 正则表达式字符串
+     * 找出 str 中所有匹配 regex 的子串。
+     *
      * @param str   要匹配的字符串
-     * @return 如果str 符合 regex的正则表达式格式,返回true, 否则返回 false;
+     * @param regex 正则表达式字符串
+     * @return 所有匹配到的子串列表（可能为空列表）；str 为 null 时返回 null
      */
     public static List<String> match(String str, String regex) {
         if (null == str) {
@@ -35,6 +33,13 @@ public class RegexUtils {
         return list;
     }
 
+    /**
+     * 判断 str 中是否存在与 regex 匹配的子串（非要求整串匹配，只要能找到一处即可）。
+     *
+     * @param str   要匹配的字符串
+     * @param regex 正则表达式字符串
+     * @return str 为 null 返回 false；否则返回是否存在匹配
+     */
     public static boolean checkByRegex(String str, String regex) {
         if (null == str) {
             return false;
@@ -43,5 +48,5 @@ public class RegexUtils {
         Matcher matcher = pattern.matcher(str);
         return matcher.find();
     }
-}  
+}
 

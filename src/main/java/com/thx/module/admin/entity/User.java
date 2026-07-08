@@ -10,9 +10,9 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 系统用户（后台管理员/操作人员），通过 UserRole 关联角色。password/salt 配合
+ * {@link com.thx.common.util.PasswordHelper} 做加盐哈希，getCredentialsSalt() 是 Shiro
+ * 校验密码时实际使用的盐值来源，不是 salt 字段本身。
  */
 @Data
 public class User implements Serializable {
@@ -52,7 +52,7 @@ public class User implements Serializable {
     private String phone;
 
     /**
-     * 年龄：1男2女
+     * 性别：1男 2女
      */
     private Integer sex;
 

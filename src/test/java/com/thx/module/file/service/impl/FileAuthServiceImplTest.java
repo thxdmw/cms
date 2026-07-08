@@ -13,6 +13,11 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * FileAuthServiceImpl 权限校验测试
+ * 覆盖跨 App 隔离（一律 404）、PUBLIC/APP_INTERNAL/OWNER_ONLY 三种访问级别的允许与拒绝分支、
+ * 未知访问级别的默认拒绝等场景
+ */
 class FileAuthServiceImplTest {
 
     private FileAuthServiceImpl fileAuthService;
@@ -22,6 +27,7 @@ class FileAuthServiceImplTest {
         fileAuthService = new FileAuthServiceImpl();
     }
 
+    /** 构造测试用的调用方上下文，固定 CallerType 为 APPLICATION、Scope 为 READ */
     private FileCallerContext caller(String appId, String userId) {
         FileCallerContext ctx = new FileCallerContext();
         ctx.setAppId(appId);
@@ -31,6 +37,7 @@ class FileAuthServiceImplTest {
         return ctx;
     }
 
+    /** 构造测试用的文件资产，只设置权限校验关心的字段 */
     private FileAsset asset(String appId, String accessLevel, String ownerId) {
         FileAsset asset = new FileAsset();
         asset.setAppId(appId);

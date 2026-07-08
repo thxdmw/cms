@@ -14,7 +14,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Created with IntelliJ IDEA.
+ * 本地文件上传工具类，负责将上传的 {@link MultipartFile} 落盘到本地磁盘目录。
  *
  * @author tanghaixin
  * @date 2020/4/18 12:28 下午
@@ -23,8 +23,18 @@ import java.util.regex.Pattern;
 @UtilityClass
 public class FileUploadUtil {
 
+    /** 匹配 Windows 路径分隔符 "\" 的模式，用于将本地路径统一替换为 URL 风格的 "/"。 */
     private final Pattern PATTERN = Pattern.compile("\\\\", Pattern.LITERAL);
 
+    /**
+     * 将上传文件保存到 uploadPath 下按当天日期（yyyyMMdd）分目录存放，文件名会被清洗
+     * 并追加当前时间戳以避免重名覆盖。
+     *
+     * @param file       上传的文件
+     * @param uploadPath 上传根目录
+     * @return 相对路径，形如 "yyyyMMdd/文件名_时间戳.后缀"（统一使用 "/" 分隔）；
+     *         目录创建失败或写盘异常时返回 null 或空字符串
+     */
     public String uploadLocal(MultipartFile file, String uploadPath) {
         String res = "";
         try {

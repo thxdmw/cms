@@ -8,9 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 站点概览信息服务实现，直接委托 {@link BizArticleMapper#getSiteInfo()} 完成统计。
  */
 @Service
 @AllArgsConstructor

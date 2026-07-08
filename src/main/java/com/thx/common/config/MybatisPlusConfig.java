@@ -8,11 +8,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
- * spring事务、MybatisPlus分页插件、mybatis包扫描等配置
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * Spring 事务、MyBatis-Plus 分页插件、Mapper 包扫描配置。
+ * 三个业务模块（admin/tools/file）各自维护自己的 mapper 包，统一在这里配置扫描路径。
  */
 @EnableTransactionManagement
 @Configuration

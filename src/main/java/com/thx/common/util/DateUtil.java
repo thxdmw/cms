@@ -14,42 +14,85 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 
 /**
- * 日期工具类
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 日期工具类，集中了项目中用到的日期格式常量、日期解析/格式化、日期加减、
+ * 日期区间计算等静态方法，是使用频率最高的基础设施类之一。
+ * <p>
+ * 方法命名沿用了较早期的风格（如 webFormat、newFormat 等常量并未严格遵循
+ * 全大写命名规范），这是历史遗留，为避免影响所有调用方，本次改造未做重命名，
+ * 仅补充注释说明每个方法的实际格式/语义。
+ * <p>
+ * 使用时需注意两类方法的差异：方法名包含 "parse" 的用于把字符串解析成
+ * {@link Date}，包含 "get..String"/"format" 的用于把 {@link Date} 格式化成字符串；
+ * 大部分 parse 系列方法内部设置了 {@code setLenient(false)}，即不允许"溢出"日期
+ * （如 2 月 30 日）被自动纠正为 3 月 2 日，而是直接抛出 {@link ParseException}。
  */
 @Slf4j
 @UtilityClass
 public class DateUtil {
 
+    /** 一天的秒数 */
     public static final long ONE_DAY_SECONDS = 86400;
+    /** 短日期格式：yyyyMMdd */
     public static final String SHORT_FORMAT = "yyyyMMdd";
+    /** 长日期时间格式：yyyyMMddHHmmss */
     public static final String LONG_FORMAT = "yyyyMMddHHmmss";
+    /** 带毫秒的紧凑格式：yyyyMMddHHmmssSSS，常用于生成时间戳类唯一编号 */
     public static final String concurrentFormat = "yyyyMMddHHmmssSSS";
+    /** 两位年份+毫秒的紧凑格式：yyMMddHHmmssSSS */
     public static final String shortConcurrentFormat = "yyMMddHHmmssSSS";
+    /** 页面展示用日期格式：yyyy-MM-dd */
     public static final String webFormat = "yyyy-MM-dd";
+    /** 页面展示用年月格式：yyyy-MM */
     public static final String webMonthFormat = "yyyy-MM";
+    /** 仅时间格式：HH:mm:ss */
     public static final String timeFormat = "HH:mm:ss";
+    /** 年月格式：yyyyMM */
     public static final String monthFormat = "yyyyMM";
+    /** 中文日期格式：yyyy年MM月dd日 */
     public static final String chineseDtFormat = "yyyy年MM月dd日";
+    /** 中文年月格式：yyyy年MM月 */
     public static final String chineseYMFormat = "yyyy年MM月";
+    /** 页面展示用日期时间格式：yyyy-MM-dd HH:mm:ss */
     public static final String newFormat = "yyyy-MM-dd HH:mm:ss";
+    /** 不含秒的日期时间格式：yyyy-MM-dd HH:mm */
     public static final String noSecondFormat = "yyyy-MM-dd HH:mm";
+    /** 月-日格式：MM-dd */
     public static final String MdFormat = "MM-dd";
+    /** 一天的毫秒数 */
     public static final long ONE_DAY_MILL_SECONDS = 86400000;
 
+    /**
+     * 创建一个非宽松模式（{@code setLenient(false)}）的 {@link DateFormat}，
+     * 避免把不合法日期（如 2 月 30 日）自动纠正为合法日期而不报错。
+     *
+     * @param pattern 日期格式
+     * @return 非宽松模式的 DateFormat
+     */
     public static DateFormat getNewDateFormat(String pattern) {
         DateFormat df = new SimpleDateFormat(pattern);
         df.setLenient(false);
         return df;
     }
 
+    /**
+     * 按指定格式将日期格式化为字符串。
+     *
+     * @param date   日期
+     * @param format 目标格式
+     * @return 格式化后的字符串
+     */
     public static String format(Date date, String format) {
         return new SimpleDateFormat(format).format(date);
     }
 
+    /**
+     * 将字符串日期从旧格式解析后，重新格式化为新格式字符串。
+     *
+     * @param dateStr   原始日期字符串
+     * @param oldFormat 原始格式
+     * @param newFormat 目标格式
+     * @return 转换后的日期字符串
+     */
     public static String format(String dateStr, String oldFormat, String newFormat) throws ParseException {
         String result = null;
         DateFormat oldDateFormat = new SimpleDateFormat(oldFormat);
@@ -59,11 +102,25 @@ public class DateUtil {
         return result;
     }
 
+    /**
+     * 按 {@link #SHORT_FORMAT}（yyyyMMdd）解析日期字符串。
+     *
+     * @param sDate 待解析的日期字符串
+     * @return 解析后的日期
+     */
     public static Date parseDateNoTime(String sDate) throws ParseException {
         DateFormat dateFormat = new SimpleDateFormat(SHORT_FORMAT);
         return dateFormat.parse(sDate);
     }
 
+    /**
+     * 按指定格式解析日期字符串。
+     *
+     * @param sDate  待解析的日期字符串
+     * @param format 日期格式，不能为空
+     * @return 解析后的日期
+     * @throws ParseException format 为空，或字符串不符合格式时抛出
+     */
     public static Date parseDateNoTime(String sDate, String format) throws ParseException {
         if (StrUtil.isBlank(format)) {
             throw new ParseException("Null format. ", 0);
@@ -73,35 +130,72 @@ public class DateUtil {
         return dateFormat.parse(sDate);
     }
 
+    /**
+     * 先按正则 delimit 去除日期字符串中的分隔符，再按 {@link #SHORT_FORMAT}（yyyyMMdd）解析。
+     *
+     * @param sDate   待解析的日期字符串，如 "2019-09-11"
+     * @param delimit 分隔符正则，如 "-"
+     * @return 解析后的日期
+     */
     public static Date parseDateNoTimeWithDelimit(String sDate, String delimit) throws ParseException {
         sDate = sDate.replaceAll(delimit, "");
         DateFormat dateFormat = new SimpleDateFormat(SHORT_FORMAT);
         return dateFormat.parse(sDate);
     }
 
+    /**
+     * 按 {@link #LONG_FORMAT}（yyyyMMddHHmmss）解析日期字符串。
+     *
+     * @param sDate 待解析的日期字符串
+     * @return 解析后的日期
+     */
     public static Date parseDateLongFormat(String sDate) throws ParseException {
         DateFormat dateFormat = new SimpleDateFormat(LONG_FORMAT);
         return dateFormat.parse(sDate);
     }
 
+    /**
+     * 按 {@link #newFormat}（yyyy-MM-dd HH:mm:ss）以非宽松模式解析日期字符串。
+     *
+     * @param sDate 待解析的日期字符串
+     * @return 解析后的日期
+     */
     public static Date parseDateNewFormat(String sDate) throws ParseException {
         DateFormat dateFormat = new SimpleDateFormat(newFormat);
         dateFormat.setLenient(false);
         return dateFormat.parse(sDate);
     }
 
+    /**
+     * 按 {@link #noSecondFormat}（yyyy-MM-dd HH:mm）以非宽松模式解析日期字符串。
+     *
+     * @param sDate 待解析的日期字符串
+     * @return 解析后的日期
+     */
     public static Date parseDateNoSecondFormat(String sDate) throws ParseException {
         DateFormat dateFormat = new SimpleDateFormat(noSecondFormat);
         dateFormat.setLenient(false);
         return dateFormat.parse(sDate);
     }
 
+    /**
+     * 按 {@link #webFormat}（yyyy-MM-dd）以非宽松模式解析日期字符串。
+     *
+     * @param sDate 待解析的日期字符串
+     * @return 解析后的日期
+     */
     public static Date parseDateWebFormat(String sDate) throws ParseException {
         DateFormat dateFormat = new SimpleDateFormat(webFormat);
         dateFormat.setLenient(false);
         return dateFormat.parse(sDate);
     }
 
+    /**
+     * 按 {@link #webMonthFormat}（yyyy-MM）以非宽松模式解析日期字符串。
+     *
+     * @param sDate 待解析的日期字符串
+     * @return 解析后的日期
+     */
     public static Date parseDateWebMonthFormat(String sDate) throws ParseException {
         DateFormat dateFormat = new SimpleDateFormat(webMonthFormat);
         dateFormat.setLenient(false);
@@ -131,6 +225,8 @@ public class DateUtil {
     }
 
     /**
+     * 计算指定时间几秒之后的时间，secs 为负数时表示往前推。
+     *
      * @param date1
      * @param secs
      * @return
@@ -182,6 +278,12 @@ public class DateUtil {
         return cal.getTime();
     }
 
+    /**
+     * 取得指定日期（{@link #SHORT_FORMAT} 格式字符串）的明天日期，返回同样格式的字符串。
+     *
+     * @param sDate yyyyMMdd 格式的日期字符串
+     * @return 明天日期，yyyyMMdd 格式
+     */
     public static String getTomorrowDateString(String sDate) throws ParseException {
         Date aDate = parseDateNoTime(sDate);
 
@@ -190,39 +292,83 @@ public class DateUtil {
         return getDateString(aDate);
     }
 
+    /**
+     * 取得指定日期（{@link #webFormat} 格式字符串）的明天日期，返回同样格式的字符串。
+     *
+     * @param sDate yyyy-MM-dd 格式的日期字符串
+     * @return 明天日期，yyyy-MM-dd 格式
+     */
     public static String getTomorrowDateNewFMTString(String sDate) throws ParseException {
         Date aDate = parseDateWebFormat(sDate);
         aDate = addDays(aDate, 1);
         return getWebDateString(aDate);
     }
 
+    /**
+     * 取得指定日期（{@link #newFormat} 格式字符串）的明天日期，返回 {@link #webFormat} 格式字符串。
+     *
+     * @param sDate yyyy-MM-dd HH:mm:ss 格式的日期字符串
+     * @return 明天日期，yyyy-MM-dd 格式
+     */
     public static String getTomorrowDateNewFormatString(String sDate) throws ParseException {
         Date aDate = parseDateNewFormat(sDate);
         aDate = addDays(aDate, 1);
         return getWebDateString(aDate);
     }
 
+    /**
+     * 将日期格式化为 {@link #LONG_FORMAT}（yyyyMMddHHmmss）字符串。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串
+     */
     public static String getLongDateString(Date date) {
         DateFormat dateFormat = new SimpleDateFormat(LONG_FORMAT);
 
         return getDateString(date, dateFormat);
     }
 
+    /**
+     * 将日期格式化为 {@link #newFormat}（yyyy-MM-dd HH:mm:ss）字符串。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串
+     */
     public static String getNewFormatDateString(Date date) {
         DateFormat dateFormat = new SimpleDateFormat(newFormat);
         return getDateString(date, dateFormat);
     }
 
+    /**
+     * 将日期格式化为 {@link #webFormat}（yyyy-MM-dd）字符串。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串
+     */
     public static String getWebFormatDateString(Date date) {
         DateFormat dateFormat = new SimpleDateFormat(webFormat);
         return getDateString(date, dateFormat);
     }
 
+    /**
+     * 将日期格式化为 {@link #concurrentFormat}（yyyyMMddHHmmssSSS，精确到毫秒）字符串，
+     * 常用于生成带时间戳的业务编号。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串
+     */
     public static String getConcurrentFormatDateString(Date date) {
         DateFormat dateFormat = new SimpleDateFormat(concurrentFormat);
         return getDateString(date, dateFormat);
     }
 
+    /**
+     * 使用指定 DateFormat 格式化日期。
+     *
+     * @param date       日期
+     * @param dateFormat 格式化器
+     * @return 格式化后的字符串；date 或 dateFormat 为 null 时返回 null
+     */
     public static String getDateString(Date date, DateFormat dateFormat) {
         if (date == null || dateFormat == null) {
             return null;
@@ -231,6 +377,12 @@ public class DateUtil {
         return dateFormat.format(date);
     }
 
+    /**
+     * 取得指定日期（{@link #SHORT_FORMAT} 格式字符串）的昨天日期，返回同样格式的字符串。
+     *
+     * @param sDate yyyyMMdd 格式的日期字符串
+     * @return 昨天日期，yyyyMMdd 格式
+     */
     public static String getYesterDayDateString(String sDate) throws ParseException {
         Date aDate = parseDateNoTime(sDate);
 
@@ -240,7 +392,10 @@ public class DateUtil {
     }
 
     /**
-     * @return 当天的时间格式化为"yyyyMMdd"
+     * 将指定日期格式化为 {@link #SHORT_FORMAT}（yyyyMMdd）字符串。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串，形如 "yyyyMMdd"
      */
     public static String getDateString(Date date) {
         DateFormat df = getNewDateFormat(SHORT_FORMAT);
@@ -248,6 +403,14 @@ public class DateUtil {
         return df.format(date);
     }
 
+    /**
+     * 将日期格式化为 {@link #webFormat}（yyyy-MM-dd）字符串。效果与
+     * {@link #getWebFormatDateString(Date)} 相同（格式化场景下宽松/非宽松模式没有区别），
+     * 属于历史遗留的重复实现，保留是为了不影响既有调用方。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串
+     */
     public static String getWebDateString(Date date) {
         DateFormat dateFormat = getNewDateFormat(webFormat);
 
@@ -255,10 +418,10 @@ public class DateUtil {
     }
 
     /**
-     * 取得“X年X月X日”的日期格式
+     * 取得"X年X月X日"的日期格式
      *
-     * @param date
-     * @return
+     * @param date 日期
+     * @return 格式化后的字符串，如 "2019年09月11日"
      */
     public static String getChineseDateString(Date date) {
         DateFormat dateFormat = getNewDateFormat(chineseDtFormat);
@@ -266,24 +429,46 @@ public class DateUtil {
         return getDateString(date, dateFormat);
     }
 
+    /**
+     * 取得当天日期，格式化为 {@link #SHORT_FORMAT}（yyyyMMdd）字符串。
+     *
+     * @return 当天日期字符串
+     */
     public static String getTodayString() {
         DateFormat dateFormat = getNewDateFormat(SHORT_FORMAT);
 
         return getDateString(new Date(), dateFormat);
     }
 
+    /**
+     * 取得明天日期，格式化为 {@link #SHORT_FORMAT}（yyyyMMdd）字符串。
+     *
+     * @return 明天日期字符串
+     */
     public static String getTomorrowString() {
         DateFormat dateFormat = getNewDateFormat(SHORT_FORMAT);
 
         return getDateString(DateUtil.addDays(new Date(), 1), dateFormat);
     }
 
+    /**
+     * 将日期格式化为 {@link #timeFormat}（HH:mm:ss）字符串，仅保留时分秒部分。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串
+     */
     public static String getTimeString(Date date) {
         DateFormat dateFormat = getNewDateFormat(timeFormat);
 
         return getDateString(date, dateFormat);
     }
 
+    /**
+     * 取得当前时间往前推 days 天的日期，格式化为 {@link #SHORT_FORMAT}（yyyyMMdd）字符串。
+     *
+     * @param days 往前推的天数
+     * @return 日期字符串
+     */
     public static String getBeforeDayString(int days) {
         Date date = new Date(System.currentTimeMillis() - ONE_DAY_MILL_SECONDS * days);
         DateFormat dateFormat = getNewDateFormat(SHORT_FORMAT);
@@ -346,7 +531,9 @@ public class DateUtil {
     }
 
     /**
-     * 取得两个日期的间隔天数
+     * 取得两个日期的间隔天数（日期1-日期2），按毫秒差整除得到，
+     * 不足 24 小时的部分会被舍去（例如相差 23 小时也会算作 0 天）。
+     * 如果需要按日历上的自然日计算，应使用 {@link #getDiffNaturalDays(Date, Date)}。
      *
      * @param one
      * @param two
@@ -364,22 +551,24 @@ public class DateUtil {
     }
 
     /**
-     * 取得两个日期相差的自然日
+     * 取得两个日期相差的自然日（按日历天数计算，忽略时分秒，与 {@link #getDiffDays} 的
+     * 按毫秒整除方式不同，取绝对值，恒为非负数）。
      *
      * @param date1
      * @param date2
-     * @return
+     * @return 相差的自然日天数
      */
     public static long getDiffNaturalDays(Date date1, Date date2) throws ParseException {
         return Math.abs(getDiffNaturalDayNotAbs(date1, date2));
     }
 
     /**
-     * 取得两个日期相差的自然日
+     * 取得两个日期相差的自然日（按日历天数计算，忽略时分秒），不取绝对值，
+     * date1 早于 date2 时结果为负数。
      *
      * @param date1
      * @param date2
-     * @return
+     * @return 相差的自然日天数，date1 早于 date2 时为负
      */
     public static long getDiffNaturalDayNotAbs(Date date1, Date date2) throws ParseException {
 
@@ -394,6 +583,13 @@ public class DateUtil {
         return diffDays;
     }
 
+    /**
+     * 取得指定日期（{@link #SHORT_FORMAT} 格式字符串）往前推 days 天的日期字符串。
+     *
+     * @param dateString yyyyMMdd 格式的日期字符串
+     * @param days       往前推的天数
+     * @return 日期字符串，yyyyMMdd 格式
+     */
     public static String getBeforeDayString(String dateString, int days) throws ParseException {
         DateFormat df = getNewDateFormat(SHORT_FORMAT);
         Date date = df.parse(dateString);
@@ -402,6 +598,13 @@ public class DateUtil {
         return df.format(date);
     }
 
+    /**
+     * 校验字符串是否为合法的 {@link #SHORT_FORMAT}（yyyyMMdd）格式日期：
+     * 依次校验长度、是否纯数字、能否被正确解析。
+     *
+     * @param strDate 待校验的字符串
+     * @return 合法返回 true，否则返回 false
+     */
     public static boolean isValidShortDateFormat(String strDate) {
         if (strDate == null || strDate.length() != SHORT_FORMAT.length()) {
             return false;
@@ -425,6 +628,14 @@ public class DateUtil {
         return true;
     }
 
+    /**
+     * 先按 delimiter 正则去除日期字符串中的分隔符，再校验是否为合法的
+     * {@link #SHORT_FORMAT}（yyyyMMdd）格式。
+     *
+     * @param strDate   待校验的字符串
+     * @param delimiter 分隔符正则
+     * @return 合法返回 true，否则返回 false
+     */
     public static boolean isValidShortDateFormat(String strDate, String delimiter) {
         String temp = strDate.replaceAll(delimiter, "");
 
@@ -472,10 +683,23 @@ public class DateUtil {
         return isValidLongDateFormat(temp);
     }
 
+    /**
+     * 按默认分隔符（"-" 或 "/"）去除后转换为 {@link #SHORT_FORMAT}（yyyyMMdd）格式。
+     *
+     * @param strDate 日期字符串，如 "2019-09-11" 或 "2019/09/11"
+     * @return 转换后的字符串；非法日期返回 null
+     */
     public static String getShortDateString(String strDate) {
         return getShortDateString(strDate, "-|/");
     }
 
+    /**
+     * 按 delimiter 指定的分隔符正则去除后转换为 {@link #SHORT_FORMAT}（yyyyMMdd）格式。
+     *
+     * @param strDate   日期字符串
+     * @param delimiter 分隔符正则
+     * @return 转换后的字符串；strDate 为空或非法日期时返回 null
+     */
     public static String getShortDateString(String strDate, String delimiter) {
         if (StrUtil.isBlank(strDate)) {
             return null;
@@ -490,6 +714,11 @@ public class DateUtil {
         return null;
     }
 
+    /**
+     * 取得当月第一天，格式化为 {@link #SHORT_FORMAT}（yyyyMMdd）字符串。
+     *
+     * @return 当月第一天的日期字符串
+     */
     public static String getShortFirstDayOfMonth() {
         Calendar cal = Calendar.getInstance();
         Date dt = new Date();
@@ -502,6 +731,11 @@ public class DateUtil {
         return df.format(cal.getTime());
     }
 
+    /**
+     * 取得当天日期，格式化为 {@link #webFormat}（yyyy-MM-dd）字符串。
+     *
+     * @return 当天日期字符串
+     */
     public static String getWebTodayString() {
         DateFormat df = getNewDateFormat(webFormat);
 
@@ -511,7 +745,7 @@ public class DateUtil {
     /**
      * 获取当月首日
      *
-     * @return
+     * @return 当月首日，yyyy-MM-dd 格式字符串
      */
     public static String getWebFirstDayOfMonth() {
         Calendar cal = Calendar.getInstance();
@@ -528,13 +762,21 @@ public class DateUtil {
     /**
      * 获取当月的总天数
      *
-     * @return
+     * @return 当前系统时间所在月份的总天数
      */
     public static int getDaysOfMonth() {
         Calendar cal = Calendar.getInstance(Locale.CHINA);
         return cal.getActualMaximum(Calendar.DATE);
     }
 
+    /**
+     * 将字符串日期从 formatIn 格式转换为 formatOut 格式。
+     *
+     * @param dateString 原始日期字符串
+     * @param formatIn   原始格式
+     * @param formatOut  目标格式
+     * @return 转换后的字符串；解析失败时返回空字符串（不抛异常）
+     */
     public static String convert(String dateString, DateFormat formatIn, DateFormat formatOut) {
         try {
             Date date = formatIn.parse(dateString);
@@ -545,6 +787,12 @@ public class DateUtil {
         }
     }
 
+    /**
+     * 将 {@link #SHORT_FORMAT}（yyyyMMdd）格式字符串转换为 {@link #webFormat}（yyyy-MM-dd）格式。
+     *
+     * @param dateString yyyyMMdd 格式字符串
+     * @return yyyy-MM-dd 格式字符串
+     */
     public static String convert2WebFormat(String dateString) {
         DateFormat df1 = getNewDateFormat(SHORT_FORMAT);
         DateFormat df2 = getNewDateFormat(webFormat);
@@ -552,6 +800,12 @@ public class DateUtil {
         return convert(dateString, df1, df2);
     }
 
+    /**
+     * 将 {@link #SHORT_FORMAT}（yyyyMMdd）格式字符串转换为 {@link #chineseDtFormat}（X年X月X日）格式。
+     *
+     * @param dateString yyyyMMdd 格式字符串
+     * @return "X年X月X日" 格式字符串
+     */
     public static String convert2ChineseDtFormat(String dateString) {
         DateFormat df1 = getNewDateFormat(SHORT_FORMAT);
         DateFormat df2 = getNewDateFormat(chineseDtFormat);
@@ -559,6 +813,12 @@ public class DateUtil {
         return convert(dateString, df1, df2);
     }
 
+    /**
+     * 将 {@link #webFormat}（yyyy-MM-dd）格式字符串转换为 {@link #SHORT_FORMAT}（yyyyMMdd）格式。
+     *
+     * @param dateString yyyy-MM-dd 格式字符串
+     * @return yyyyMMdd 格式字符串
+     */
     public static String convertFromWebFormat(String dateString) {
         DateFormat df1 = getNewDateFormat(SHORT_FORMAT);
         DateFormat df2 = getNewDateFormat(webFormat);
@@ -566,6 +826,13 @@ public class DateUtil {
         return convert(dateString, df2, df1);
     }
 
+    /**
+     * 判断 date1 是否不早于 date2（即 date1 &gt;= date2），两者均为 {@link #webFormat}（yyyy-MM-dd）格式字符串。
+     *
+     * @param date1 日期字符串1
+     * @param date2 日期字符串2
+     * @return date1 不早于 date2 返回 true
+     */
     public static boolean webDateNotLessThan(String date1, String date2) {
         DateFormat df = getNewDateFormat(webFormat);
 
@@ -573,10 +840,12 @@ public class DateUtil {
     }
 
     /**
-     * @param date1
-     * @param date2
-     * @param format
-     * @return
+     * 按 format 解析后比较两个日期字符串，判断 date1 是否不早于 date2。
+     *
+     * @param date1  日期字符串1
+     * @param date2  日期字符串2
+     * @param format 解析格式
+     * @return date1 不早于 date2 返回 true；解析失败按 false 处理
      */
     public static boolean dateNotLessThan(String date1, String date2, DateFormat format) {
         try {
@@ -589,6 +858,12 @@ public class DateUtil {
         }
     }
 
+    /**
+     * 格式化为邮件正文中常用的中文日期时间描述，如 "2019年09月11日12:00:00"。
+     *
+     * @param today 日期
+     * @return 格式化后的字符串
+     */
     public static String getEmailDate(Date today) {
         String todayStr;
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy年MM月dd日HH:mm:ss");
@@ -597,6 +872,12 @@ public class DateUtil {
         return todayStr;
     }
 
+    /**
+     * 格式化为短信正文中常用的日期时间描述，如 "09月11日12:00"。
+     *
+     * @param today 日期
+     * @return 格式化后的字符串
+     */
     public static String getSmsDate(Date today) {
         String todayStr;
         SimpleDateFormat sdf = new SimpleDateFormat("MM月dd日HH:mm");
@@ -605,6 +886,12 @@ public class DateUtil {
         return todayStr;
     }
 
+    /**
+     * 将日期格式化为 {@link #monthFormat}（yyyyMM）字符串。
+     *
+     * @param date 日期
+     * @return 格式化后的字符串；date 为 null 时返回 null
+     */
     public static String formatMonth(Date date) {
         if (date == null) {
             return null;
@@ -616,7 +903,7 @@ public class DateUtil {
     /**
      * 获取系统日期的前一天日期，返回Date
      *
-     * @return
+     * @return 前一天日期（含当前时刻的时分秒，只是整体减去一天的毫秒数）
      */
     public static Date getBeforeDate() {
         Date date = new Date();
@@ -625,10 +912,12 @@ public class DateUtil {
     }
 
     /**
-     * 获得指定时间当天起点时间
+     * 获得指定时间当天起点时间（即当天 00:00:00）。内部实现是先把日期格式化为
+     * yyyyMMdd 字符串，再反解析回 Date，从而丢弃时分秒部分；若中途解析异常（理论上不会发生），
+     * 则原样返回传入的 date。
      *
-     * @param date
-     * @return
+     * @param date 日期
+     * @return 当天零点的日期
      */
     public static Date getDayBegin(Date date) {
         DateFormat df = new SimpleDateFormat("yyyyMMdd");
@@ -669,6 +958,12 @@ public class DateUtil {
 
     }
 
+    /**
+     * 判断日期是否早于当前时间。
+     *
+     * @param date 日期
+     * @return date 为 null 时返回 false；否则判断是否早于当前时间
+     */
     public static boolean isBeforeNow(Date date) {
         if (date == null) {
             return false;
@@ -679,8 +974,8 @@ public class DateUtil {
     /**
      * 获得当前月的开始日期
      *
-     * @param date
-     * @return
+     * @param date {@link #webFormat}（yyyy-MM-dd）格式日期字符串
+     * @return 该日期所在月份的第一天
      */
     public static Date getMinMonthDate(String date) throws ParseException {
         Calendar calendar = Calendar.getInstance();
@@ -693,8 +988,8 @@ public class DateUtil {
     /**
      * 获得当前月的结束日期
      *
-     * @param date
-     * @return
+     * @param date {@link #webFormat}（yyyy-MM-dd）格式日期字符串
+     * @return 该日期所在月份的最后一天
      */
     public static Date getMaxMonthDate(String date) throws ParseException {
         Calendar calendar = Calendar.getInstance();
@@ -704,15 +999,24 @@ public class DateUtil {
         return calendar.getTime();
     }
 
+    /**
+     * 按 {@link #noSecondFormat}（yyyy-MM-dd HH:mm）解析日期字符串，宽松模式
+     * （与 {@link #parseDateNoSecondFormat(String)} 的区别是未调用 {@code setLenient(false)}）。
+     *
+     * @param sDate 待解析的日期字符串
+     * @return 解析后的日期
+     */
     public static Date parseNoSecondFormat(String sDate) throws ParseException {
         DateFormat dateFormat = new SimpleDateFormat(noSecondFormat);
         return dateFormat.parse(sDate);
     }
 
-    /*
+    /**
+     * date日期转变成指定格式字符串
      *
-     * date日期转变成 制定格式字符串
-     *
+     * @param date         日期
+     * @param time_pattern 目标格式
+     * @return 格式化后的字符串
      */
     public static String convertDate2String(Date date, String time_pattern) {
         SimpleDateFormat sf = new SimpleDateFormat(time_pattern);
@@ -732,6 +1036,13 @@ public class DateUtil {
 
     }
 
+    /**
+     * 按 {@link #webMonthFormat}（yyyy-MM）解析两个字符串后比较先后。
+     *
+     * @param dateStr        日期字符串1
+     * @param anotherDateStr 日期字符串2
+     * @return 与 {@link Long#compare(long, long)} 语义相同：小于、等于、大于分别返回负数、0、正数
+     */
     public static int compareDateStr(String dateStr, String anotherDateStr) throws ParseException {
         DateFormat df = new SimpleDateFormat(webMonthFormat);
         Date dt1 = df.parse(dateStr);
@@ -739,10 +1050,22 @@ public class DateUtil {
         return Long.compare(dt1.getTime(), dt2.getTime());
     }
 
+    /**
+     * 取得当前月份，格式化为 {@link #webMonthFormat}（yyyy-MM）字符串。
+     *
+     * @return 当前月份字符串
+     */
     public static String getCurMonth() {
         return format(new Date(), webMonthFormat);
     }
 
+    /**
+     * 将 {@link #chineseYMFormat}（X年X月）格式字符串解析后再格式化输出，
+     * 用于校验/规整输入格式（合法输入原样返回，非法输入将抛出 ParseException）。
+     *
+     * @param date "X年X月" 格式字符串
+     * @return 规整后的 "X年X月" 格式字符串
+     */
     public static String getChineseYMString(String date) throws ParseException {
         SimpleDateFormat sdf = new SimpleDateFormat(chineseYMFormat);
         Date datea = sdf.parse(date);
@@ -750,6 +1073,12 @@ public class DateUtil {
         return getDateString(datea, dateFormat);
     }
 
+    /**
+     * 取得指定月份（{@link #webMonthFormat}，yyyy-MM 格式字符串）的上一个自然月对应的日期。
+     *
+     * @param date yyyy-MM 格式字符串
+     * @return 上一个月对应的日期
+     */
     public static Date getPreMonthDate(String date) throws ParseException {
         SimpleDateFormat sdf = new SimpleDateFormat(webMonthFormat);
         Date datea = sdf.parse(date);
@@ -759,6 +1088,12 @@ public class DateUtil {
         return cal.getTime();
     }
 
+    /**
+     * 取得指定月份（{@link #webMonthFormat}，yyyy-MM 格式字符串）的下一个自然月对应的日期。
+     *
+     * @param date yyyy-MM 格式字符串
+     * @return 下一个月对应的日期
+     */
     public static Date getNextMonthDate(String date) throws ParseException {
         SimpleDateFormat sdf = new SimpleDateFormat(webMonthFormat);
         Date datea = sdf.parse(date);
@@ -772,7 +1107,7 @@ public class DateUtil {
      * 获取指定日期的当月的第一天
      *
      * @param date
-     * @return
+     * @return 当月第一天，yyyy-MM-dd 格式字符串
      */
     public static String getAssignedDateFirstDayOfMonth(Date date) {
         Calendar cal = Calendar.getInstance();
@@ -786,7 +1121,7 @@ public class DateUtil {
      * 获取指定日期的当月的最后一天
      *
      * @param date
-     * @return
+     * @return 当月最后一天，yyyy-MM-dd 格式字符串
      */
     public static String getAssignedDateLastDayOfMonth(Date date) {
         Calendar cal = Calendar.getInstance();
@@ -796,6 +1131,12 @@ public class DateUtil {
         return df.format(cal.getTime());
     }
 
+    /**
+     * 取得指定日期的次日（加一天，时分秒保持不变）。
+     *
+     * @param date 日期
+     * @return 次日日期
+     */
     public static Date getNextDate(Date date) {
         Calendar calendar = Calendar.getInstance();
         calendar.setTime(date);
@@ -804,7 +1145,9 @@ public class DateUtil {
     }
 
     /**
-     * 根据年 月 获取对应的月份 天数
+     * 根据年 月 获取对应的月份 天数。month 从 1 开始计数（1=一月）。
+     * 实现技巧：先把日历定位到该月 1 日，再通过 {@link Calendar#roll} 回退一天，
+     * 从而落在该月最后一天，读取其"日"字段即为该月总天数。
      */
     public static int getDaysByYearMonth(int year, int month) {
         Calendar a = Calendar.getInstance();

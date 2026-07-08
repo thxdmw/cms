@@ -8,9 +8,8 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 系统角色，RBAC 权限模型的中间层：用户通过 UserRole 关联角色，角色再通过 RolePermission 关联权限，
+ * 而不是让用户直接关联权限，方便批量调整一类用户的权限。
  */
 @Data
 public class Role implements Serializable {

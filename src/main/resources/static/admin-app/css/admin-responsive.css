@@ -1,0 +1,102 @@
+/*
+ * 后台管理 SPA 的移动端响应式样式。
+ * 断点统一用 768px，和 js/store.js 里 MOBILE_BREAKPOINT_QUERY 保持一致——
+ * 那边控制"渲染成桌面布局还是移动端布局"（比如侧边栏用 el-aside 还是 el-drawer），
+ * 这里控制视觉细节（对话框宽度、表单标签位置、间距），两者配合才是完整的移动适配，
+ * 单改一处会出现"JS 判断是移动端了，但样式还是桌面那一套"的错位。
+ *
+ * 采用全局样式 + Element Plus 类名覆盖的方式，而不是逐个页面改 el-dialog 的 width 属性、
+ * 逐个表单改 label-position：这个后台有十几个结构高度相似的列表/表单页，
+ * 用少量全局规则一次性覆盖，比每个页面单独改动更不容易漏改、也更好维护。
+ */
+
+@media (max-width: 768px) {
+    /* ---------- 弹窗：桌面端写死的 500px/600px 等宽度在窄屏下会超出屏幕，改成按屏宽百分比 ---------- */
+    .el-dialog {
+        width: 92vw !important;
+        max-width: 480px;
+        margin-top: 8vh !important;
+    }
+
+    .el-dialog__body {
+        max-height: 65vh;
+        overflow-y: auto;
+    }
+
+    /* ---------- 抽屉导航菜单：宽度跟随 AdminLayout.js 里的 size="240px"，这里只管内部间距 ---------- */
+    .admin-mobile-drawer .el-drawer__body {
+        padding: 0;
+    }
+
+    /* ---------- 表单：默认的"标签在左、输入框在右"两列布局在窄屏下会把输入框挤得很窄，
+       统一改成标签在上、输入框占满宽度。只对没有单独设置 label-position="top" 的表单生效
+       （比如 ArticleFormView 的设置面板本来就是 label-position="top"，这条规则对它是无操作的）。
+       这是 Element Plus 官方文档推荐的响应式表单写法，用 CSS 直接覆盖内部结构类名实现，
+       不需要逐个页面把 el-form 都手动加上 label-position="top"。 ---------- */
+    .el-form:not(.el-form--inline) .el-form-item__label {
+        float: none;
+        display: block;
+        width: auto !important;
+        text-align: left;
+        justify-content: flex-start;
+        padding: 0 0 4px;
+    }
+    .el-form:not(.el-form--inline) .el-form-item__content {
+        margin-left: 0 !important;
+    }
+
+    /* 筛选区常用的 :inline="true" 表单：窄屏下让每个 filter 项独占一行，避免横向挤成一团 */
+    .el-form--inline .el-form-item {
+        display: flex;
+        margin-right: 0;
+        width: 100%;
+    }
+    .el-form--inline .el-form-item__content {
+        flex: 1;
+    }
+    .el-form--inline .el-input,
+    .el-form--inline .el-select {
+        width: 100% !important;
+    }
+
+    /* ---------- 卡片/表格：窄屏下减少内边距，把有限的宽度留给内容 ---------- */
+    .el-card__body {
+        padding: 12px;
+    }
+
+    /* 操作列等场景下按钮会横向挤在一起，允许换行 + 缩小内边距，减少必须横向滚动的情况 */
+    .el-table .cell .el-button {
+        padding: 6px 8px;
+        margin-left: 0 !important;
+        margin-right: 6px;
+        margin-bottom: 4px;
+    }
+    .el-table .cell {
+        white-space: normal;
+    }
+
+    /* 分页组件默认 layout 在窄屏下太宽，允许换行，"跳至"输入框和统计文字优先级降低 */
+    .el-pagination {
+        flex-wrap: wrap;
+        row-gap: 8px;
+    }
+    .el-pagination .el-pagination__jump,
+    .el-pagination .el-pagination__total {
+        display: none;
+    }
+}
+
+@media (max-width: 420px) {
+    /* 超小屏（如 iPhone SE）进一步收紧弹窗和卡片间距 */
+    .el-dialog {
+        width: 96vw !important;
+    }
+    .el-card__body {
+        padding: 8px;
+    }
+
+    /* IconPicker.js 的图标选择面板宽度写死 320px，超小屏下可能比视口还宽，改成不超过视口的 90% */
+    .icon-picker-grid {
+        width: min(320px, 90vw) !important;
+    }
+}

@@ -11,9 +11,7 @@ import org.springframework.stereotype.Service;
 import java.util.Date;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 文章-标签关联服务实现，维护 biz_article_tags 中间表。
  */
 @Service
 @AllArgsConstructor
@@ -21,11 +19,13 @@ public class BizArticleTagsServiceImpl extends ServiceImpl<BizArticleTagsMapper,
 
     private final BizArticleTagsMapper bizArticleTagsMapper;
 
+    /** 删除指定文章的全部标签关联记录。 */
     @Override
     public int removeByArticleId(String articleId) {
         return bizArticleTagsMapper.delete(Wrappers.<BizArticleTags>lambdaQuery().eq(BizArticleTags::getArticleId, articleId));
     }
 
+    /** 为指定文章逐条插入标签关联记录，自动补全创建/更新时间。 */
     @Override
     public void insertList(String[] tagIds, String articleId) {
         Date date = new Date();

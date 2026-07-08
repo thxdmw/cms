@@ -2,7 +2,7 @@ import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
 import { buildTree } from '../../tree.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 
 export default {
     setup() {
@@ -71,7 +71,7 @@ export default {
         onMounted(load);
 
         return {
-            treeData, topLevelOptions, dialogVisible, dialogTitle, saving, form,
+            store, treeData, topLevelOptions, dialogVisible, dialogTitle, saving, form,
             openAdd, openEdit, save, removeNode, hasPerm
         };
     },
@@ -85,10 +85,21 @@ export default {
                 <el-table-column prop="name" label="分类名称"></el-table-column>
                 <el-table-column prop="description" label="分类描述" align="center"></el-table-column>
                 <el-table-column prop="sort" label="排序" align="center" width="90"></el-table-column>
-                <el-table-column label="操作" align="center" width="150">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 150">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('category:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
-                        <el-button v-if="hasPerm('category:delete')" size="small" type="danger" @click="removeNode(row)">删除</el-button>
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('category:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
+                            <el-button v-if="hasPerm('category:delete')" size="small" type="danger" @click="removeNode(row)">删除</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('category:edit')" @click="openEdit(row)">编辑</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('category:delete')" @click="removeNode(row)" divided>删除</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

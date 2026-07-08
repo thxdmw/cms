@@ -4,15 +4,23 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.thx.common.shiro.MyShiroRealm;
+import com.thx.common.util.CopyUtil;
 import com.thx.common.util.CoreConst;
+import com.thx.common.util.PasswordHelper;
 import com.thx.common.util.Pagination;
+import com.thx.common.util.ResultUtil;
+import com.thx.common.util.UUIDUtil;
 import com.thx.module.admin.mapper.UserMapper;
 import com.thx.module.admin.mapper.UserRoleMapper;
 import com.thx.module.admin.entity.User;
 import com.thx.module.admin.entity.UserRole;
 import com.thx.module.admin.service.UserService;
+import com.thx.module.admin.vo.ChangePasswordVo;
 import com.thx.module.admin.vo.UserOnlineVo;
+import com.thx.module.admin.vo.base.ResponseVo;
 import lombok.AllArgsConstructor;
+import org.apache.shiro.SecurityUtils;
 import org.apache.shiro.cache.Cache;
 import org.apache.shiro.cache.CacheManager;
 import org.apache.shiro.session.Session;
@@ -29,9 +37,8 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * {@link UserService} 实现：用户增改查、角色分配、在线用户查询/踢出（基于 Shiro SessionDAO），
+ * 以及注册新用户 / 修改密码这两个从 Controller 下沉过来的完整业务流程（见对应方法注释）。
  */
 @Service
 @AllArgsConstructor
@@ -47,6 +54,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final UserMapper userMapper;
 
     private final UserRoleMapper userRoleMapper;
+
+    private final MyShiroRealm shiroRealm;
 
 
     @Override
@@ -149,6 +158,70 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         cache.put(username, deques);
     }
 
+    @Override
+    public ResponseVo registerNewUser(User userForm, String confirmPassword) {
+        String username = userForm.getUsername();
+        User existUser = selectByUsername(username);
+        if (null != existUser) {
+            return ResultUtil.error("用户名已存在");
+        }
+        String password = userForm.getPassword();
+        // 判断两次输入密码是否相等
+        if (confirmPassword != null && password != null) {
+            if (!confirmPassword.equals(password)) {
+                return ResultUtil.error("两次密码不一致");
+            }
+        }
+        userForm.setUserId(UUIDUtil.getUniqueIdByUUId());
+        userForm.setStatus(CoreConst.STATUS_VALID);
+        Date date = new Date();
+        userForm.setCreateTime(date);
+        userForm.setUpdateTime(date);
+        userForm.setLastLoginTime(date);
+        PasswordHelper.encryptPassword(userForm);
+        int num = register(userForm);
+        if (num > 0) {
+            return ResultUtil.success("添加用户成功");
+        } else {
+            return ResultUtil.error("添加用户失败");
+        }
+    }
+
+    @Override
+    public ResponseVo changePassword(ChangePasswordVo changePasswordVo) {
+        if (changePasswordVo == null
+                || changePasswordVo.getOldPassword() == null
+                || changePasswordVo.getNewPassword() == null
+                || changePasswordVo.getConfirmNewPassword() == null) {
+            return ResultUtil.error("请完整填写密码信息");
+        }
+        if (!changePasswordVo.getNewPassword().equals(changePasswordVo.getConfirmNewPassword())) {
+            return ResultUtil.error("两次密码输入不一致");
+        }
+        User principal = (User) SecurityUtils.getSubject().getPrincipal();
+        if (principal == null) {
+            return ResultUtil.error("登录状态已失效，请重新登录");
+        }
+        User loginUser = selectByUserId(principal.getUserId());
+        if (loginUser == null) {
+            return ResultUtil.error("当前用户不存在");
+        }
+        User newUser = CopyUtil.getCopy(loginUser, User.class);
+        String sysOldPassword = loginUser.getPassword();
+        newUser.setPassword(changePasswordVo.getOldPassword());
+        String entryOldPassword = PasswordHelper.getPassword(newUser);
+        if (!sysOldPassword.equals(entryOldPassword)) {
+            return ResultUtil.error("您输入的旧密码有误");
+        }
+        newUser.setPassword(changePasswordVo.getNewPassword());
+        PasswordHelper.encryptPassword(newUser);
+        updateById(newUser);
+        // 清除登录缓存，否则旧密码在 Shiro 认证缓存过期前依然能登录成功
+        List<String> userIds = new ArrayList<>();
+        userIds.add(loginUser.getUserId());
+        shiroRealm.removeCachedAuthenticationInfo(userIds);
+        return ResultUtil.success("修改密码成功");
+    }
 
     private Session getSessionBysessionId(Serializable sessionId) {
         return sessionManager.getSession(new DefaultSessionKey(sessionId));

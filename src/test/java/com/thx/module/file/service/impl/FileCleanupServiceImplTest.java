@@ -27,6 +27,11 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * FileCleanupServiceImpl 逻辑删除与物理清理测试
+ * 重点覆盖 CAS 状态流转（DELETED-&gt;PURGING-&gt;PURGED/PURGE_FAILED）、
+ * 并发抢占时的跳过逻辑、物理删除失败后的补偿任务登记与退避重试
+ */
 @ExtendWith(MockitoExtension.class)
 class FileCleanupServiceImplTest {
 
@@ -49,6 +54,7 @@ class FileCleanupServiceImplTest {
         fileCleanupService = new FileCleanupServiceImpl(fileAssetMapper, storageCleanupTaskMapper, objectStorageClient, fileSystemProperties);
     }
 
+    /** 构造一个宽限期早已过期（deletedAt=epoch）的 DELETED 状态文件 */
     private FileAsset deletedAsset() {
         return new FileAsset().setFileId("f1").setBucket("public-assets").setObjectKey("apps/cms/x.png")
                 .setStatus(FileStatus.DELETED.name()).setDeletedAt(new Date(0));
@@ -104,6 +110,7 @@ class FileCleanupServiceImplTest {
         assertEquals("CLEAN_ORPHAN", task.getTaskType());
     }
 
+    /** 构造一个待重试的 PENDING 补偿任务 */
     private StorageCleanupTask pendingTask() {
         return new StorageCleanupTask().setId(1L).setFileId("f1").setBucket("public-assets")
                 .setObjectKey("apps/cms/x.png").setTaskType("DELETE_OBJECT").setStatus("PENDING").setRetryCount(0);

@@ -15,9 +15,7 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 文章标签服务实现。
  */
 @Service
 @AllArgsConstructor
@@ -25,18 +23,21 @@ public class BizTagsServiceImpl extends ServiceImpl<BizTagsMapper, BizTags> impl
 
     private final BizTagsMapper bizTagsMapper;
 
+    /** 查询全部标签（不分页），缓存固定 key "list"。 */
     @Override
     @Cacheable(value = "tag", key = "'list'")
     public List<BizTags> selectTags(BizTags bizTags) {
         return bizTagsMapper.selectTags(null, bizTags);
     }
 
+    /** 分页查询标签列表（不走缓存）。 */
     @Override
     public IPage<BizTags> pageTags(BizTags bizTags, Integer pageNumber, Integer pageSize) {
         IPage<BizTags> page = new Pagination<>(pageNumber, pageSize);
         return page.setRecords(bizTagsMapper.selectTags(page, bizTags));
     }
 
+    /** 批量删除标签（走 MyBatis-Plus 通用的 deleteBatchIds），成功后清空标签缓存。 */
     @Override
     @CacheEvict(value = "tag", allEntries = true)
     public int deleteBatch(String[] ids) {

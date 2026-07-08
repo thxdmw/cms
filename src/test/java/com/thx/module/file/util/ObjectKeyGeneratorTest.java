@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * ObjectKeyGenerator 对象键生成格式与非法输入（含路径穿越）拒绝测试
+ */
 class ObjectKeyGeneratorTest {
 
     @Test

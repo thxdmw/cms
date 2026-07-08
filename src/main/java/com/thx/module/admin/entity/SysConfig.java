@@ -8,9 +8,8 @@ import lombok.experimental.Accessors;
 import java.io.Serializable;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 站点配置键值对，sysKey 对应 {@link com.thx.enums.SysConfigKey} 枚举定义的各个配置项
+ * （网站名称、SEO 描述、站长信息等），后台"站点设置"页面读写的就是这张表。
  */
 @Data
 @Accessors(chain = true)

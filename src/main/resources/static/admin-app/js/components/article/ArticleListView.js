@@ -2,7 +2,7 @@ import { onMounted, reactive, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 
 export default {
     setup() {
@@ -113,7 +113,7 @@ export default {
         });
 
         return {
-            articles, total, loading, filters, pageNumber, pageSize, categories,
+            store, articles, total, loading, filters, pageNumber, pageSize, categories,
             search, reset, onPageChange, onSizeChange, goAdd, goEdit,
             changeStatus, removeOne, removeBatch, downloadBatch, onSelectionChange, hasPerm
         };
@@ -180,12 +180,26 @@ export default {
                 <el-table-column prop="lookCount" label="浏览" align="center" width="70"></el-table-column>
                 <el-table-column prop="commentCount" label="评论" align="center" width="70"></el-table-column>
                 <el-table-column prop="loveCount" label="喜欢" align="center" width="70"></el-table-column>
-                <el-table-column label="操作" align="center" width="220">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 220">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('article:edit')" size="small" type="primary" @click="goEdit(row.id)">编辑</el-button>
-                        <el-button v-if="row.status===1" size="small" type="danger" @click="changeStatus(row)">取消发布</el-button>
-                        <el-button v-else size="small" type="primary" @click="changeStatus(row)">发布</el-button>
-                        <el-button v-if="hasPerm('article:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        <!-- 桌面端：按钮平铺；移动端：收进一个"更多"下拉菜单，避免把操作列撑得很宽 -->
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('article:edit')" size="small" type="primary" @click="goEdit(row.id)">编辑</el-button>
+                            <el-button v-if="row.status===1" size="small" type="danger" @click="changeStatus(row)">取消发布</el-button>
+                            <el-button v-else size="small" type="primary" @click="changeStatus(row)">发布</el-button>
+                            <el-button v-if="hasPerm('article:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('article:edit')" @click="goEdit(row.id)">编辑</el-dropdown-item>
+                                    <el-dropdown-item v-if="row.status===1" @click="changeStatus(row)">取消发布</el-dropdown-item>
+                                    <el-dropdown-item v-else @click="changeStatus(row)">发布</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('article:delete')" @click="removeOne(row)" divided>删除</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

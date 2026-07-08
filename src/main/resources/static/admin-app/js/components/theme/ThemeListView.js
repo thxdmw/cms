@@ -1,7 +1,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 
 export default {
     setup() {
@@ -99,7 +99,7 @@ export default {
         onMounted(load);
 
         return {
-            themes, total, loading, pageNumber, pageSize,
+            store, themes, total, loading, pageNumber, pageSize,
             onPageChange, onSizeChange, onSelectionChange,
             dialogVisible, dialogTitle, saving, form,
             openAdd, openEdit, save, useTheme, removeOne, removeBatch, hasPerm
@@ -125,11 +125,23 @@ export default {
                 <el-table-column label="状态" align="center" width="90">
                     <template #default="{row}">{{ row.status ? '当前使用' : '未启用' }}</template>
                 </el-table-column>
-                <el-table-column label="操作" align="center" width="220">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 220">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('theme:use') && row.status === 0" size="small" type="danger" @click="useTheme(row)">启用</el-button>
-                        <el-button v-if="hasPerm('theme:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
-                        <el-button v-if="hasPerm('theme:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('theme:use') && row.status === 0" size="small" type="danger" @click="useTheme(row)">启用</el-button>
+                            <el-button v-if="hasPerm('theme:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
+                            <el-button v-if="hasPerm('theme:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('theme:use') && row.status === 0" @click="useTheme(row)">启用</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('theme:edit')" @click="openEdit(row)">编辑</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('theme:delete')" @click="removeOne(row)" divided>删除</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

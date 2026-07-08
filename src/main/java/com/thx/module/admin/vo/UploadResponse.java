@@ -4,19 +4,25 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 文件上传接口的响应体（{@link com.thx.module.admin.controller.file.UploadController}
+ * 使用），success/failed 两个静态工厂方法分别对应成功和失败两种场景需要的字段组合。
  */
 @Data
 public class UploadResponse {
 
+    /** 文件系统里的文件 id（对应 file 模块的 file_id） */
     private String fileId;
+    /** 文件名 */
     private String fileName;
+    /** 文件大小（当前未在任何工厂方法里赋值，预留字段） */
     private Long size;
+    /** 文件扩展名/类型 */
     private String type;
+    /** 文件访问地址 */
     private String url;
+    /** 响应状态码 */
     private Integer status;
+    /** 失败时的提示信息 */
     private String msg;
 
     private UploadResponse(String fileName, String type, String url, Integer status) {

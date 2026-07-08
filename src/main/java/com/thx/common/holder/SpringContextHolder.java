@@ -5,11 +5,8 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
 /**
- * spring容器持有类，可以获取spring管理的bean
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 持有 Spring {@link ApplicationContext} 的静态引用，让非 Spring 管理的普通类
+ * （无法通过 @Autowired 注入的场景，如静态工具方法、Logback Appender 等）也能拿到容器里的 Bean。
  */
 @Component
 public class SpringContextHolder implements ApplicationContextAware {

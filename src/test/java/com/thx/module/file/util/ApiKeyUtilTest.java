@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * ApiKeyUtil 哈希计算与恒定时间比较测试
+ */
 class ApiKeyUtilTest {
 
     @Test

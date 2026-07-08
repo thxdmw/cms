@@ -12,9 +12,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 前台主题（皮肤）服务实现。同一时间约定只有一个主题处于启用状态。
  */
 @Service
 @AllArgsConstructor
@@ -22,6 +20,10 @@ public class BizThemeServiceImpl extends ServiceImpl<BizThemeMapper, BizTheme> i
 
     private final BizThemeMapper themeMapper;
 
+    /**
+     * 切换启用主题：先将所有主题置为未启用，再启用指定 id 的主题，成功后清空主题缓存。
+     * 注意：两步更新未加 {@code @Transactional} 保护，非原子操作。
+     */
     @Override
     @CacheEvict(value = "theme", allEntries = true)
     public int useTheme(String id) {
@@ -29,12 +31,14 @@ public class BizThemeServiceImpl extends ServiceImpl<BizThemeMapper, BizTheme> i
         return themeMapper.updateStatusById(id);
     }
 
+    /** 查询当前启用中的主题（status=1），缓存固定 key "current"。 */
     @Override
     @Cacheable(value = "theme", key = "'current'")
     public BizTheme selectCurrent() {
         return themeMapper.selectOne(Wrappers.<BizTheme>lambdaQuery().eq(BizTheme::getStatus, CoreConst.STATUS_VALID));
     }
 
+    /** 批量删除主题，成功后清空主题缓存。 */
     @Override
     @CacheEvict(value = "theme", allEntries = true)
     public int deleteBatch(String[] ids) {

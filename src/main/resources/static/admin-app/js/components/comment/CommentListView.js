@@ -1,7 +1,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 
 export default {
     setup() {
@@ -85,7 +85,7 @@ export default {
         onMounted(load);
 
         return {
-            comments, total, loading, status, pageNumber, pageSize,
+            store, comments, total, loading, status, pageNumber, pageSize,
             search, reset, onPageChange, onSizeChange, onSelectionChange, statusText,
             dialogVisible, saving, auditForm, openAudit, saveAudit, removeOne, removeBatch, hasPerm
         };
@@ -135,10 +135,21 @@ export default {
                 <el-table-column label="状态" align="center" width="90">
                     <template #default="{row}">{{ statusText(row.status) }}</template>
                 </el-table-column>
-                <el-table-column label="操作" align="center" width="150">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 150">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('comment:audit') && row.status === 0" size="small" type="primary" @click="openAudit(row)">审核</el-button>
-                        <el-button v-if="hasPerm('comment:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('comment:audit') && row.status === 0" size="small" type="primary" @click="openAudit(row)">审核</el-button>
+                            <el-button v-if="hasPerm('comment:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('comment:audit') && row.status === 0" @click="openAudit(row)">审核</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('comment:delete')" @click="removeOne(row)" divided>删除</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

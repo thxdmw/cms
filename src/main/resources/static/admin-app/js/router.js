@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { store } from './store.js';
 import AdminLayout from './components/layout/AdminLayout.js';
 import DashboardView from './components/dashboard/DashboardView.js';
 import ArticleListView from './components/article/ArticleListView.js';
@@ -58,6 +59,11 @@ const router = createRouter({
     scrollBehavior() {
         return { top: 0 };
     }
+});
+
+// 移动端每次成功跳转到新页面后自动收起抽屉导航菜单，不然点完菜单还要自己再点一次收起
+router.afterEach(() => {
+    store.mobileMenuVisible = false;
 });
 
 export default router;

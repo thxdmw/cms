@@ -57,7 +57,14 @@ export default {
     template: `
     <div>
         <div class="admin-topbar" style="height:56px; padding:0 20px; display:flex; align-items:center; justify-content:space-between;">
-            <span class="admin-brand">CMS 后台管理</span>
+            <span style="display:flex; align-items:center; gap:12px;">
+                <button v-if="store.isMobile" type="button" aria-label="打开菜单"
+                        @click.stop="store.mobileMenuVisible = !store.mobileMenuVisible"
+                        style="border:0; background:transparent; padding:4px; cursor:pointer; color:#606266; font-size:20px; line-height:1; display:flex;">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <span class="admin-brand">CMS 后台管理</span>
+            </span>
             <span class="admin-user">
                 <!--<span>{{ store.nickname || store.username }}</span>-->
                 <span style="position:relative;" @click.stop>

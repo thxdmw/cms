@@ -24,6 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+/**
+ * FileAuthInterceptor 认证与 Scope 校验测试
+ * 覆盖缺少请求头、AppId 无效/禁用、ApiKey 错误、未声明 Scope（Fail Closed）、
+ * Scope 权限不足、以及认证成功后 CallerContext 正确写入等场景
+ */
 @ExtendWith(MockitoExtension.class)
 class FileAuthInterceptorTest {
 

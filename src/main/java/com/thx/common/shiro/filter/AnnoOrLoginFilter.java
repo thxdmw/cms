@@ -1,7 +1,7 @@
 package com.thx.common.shiro.filter;
 
 import com.thx.common.holder.SpringContextHolder;
-import com.thx.component.AnonymousPathScanner;
+import com.thx.infra.AnonymousPathScanner;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.web.filter.AccessControlFilter;
 import org.apache.shiro.web.filter.authc.UserFilter;

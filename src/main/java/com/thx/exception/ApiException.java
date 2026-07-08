@@ -2,11 +2,9 @@ package com.thx.exception;
 
 
 /**
- * 接口调用异常
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 面向 REST 接口的业务异常：抛出后由 {@link ExceptionHandleController#handleApi} 统一捕获，
+ * 转成 JSON 格式的 {@code ResponseVo}（HTTP 状态码 500 + 异常消息）返回给前端，
+ * 而不是像其它异常那样被转发到 /error 页面（那是给传统页面跳转场景准备的）。
  */
 public class ApiException extends RuntimeException {
 

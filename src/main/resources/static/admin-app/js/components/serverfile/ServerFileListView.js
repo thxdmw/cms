@@ -1,7 +1,7 @@
 import { onMounted, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 
 function formatSize(bytes) {
     if (bytes == null) return '-';
@@ -144,7 +144,7 @@ export default {
         onMounted(load);
 
         return {
-            files, total, loading, keyword, pageNumber, pageSize,
+            store, files, total, loading, keyword, pageNumber, pageSize,
             search, reset, onPageChange, onSizeChange, onSelectionChange,
             uploadDialogVisible, uploadFileRef, pickedFile, uploadRemark, uploading,
             openUpload, pickFile, onFileChange, submitUpload,
@@ -181,12 +181,25 @@ export default {
                 <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip></el-table-column>
                 <el-table-column prop="uploader" label="上传人" align="center" width="110"></el-table-column>
                 <el-table-column prop="createTime" label="上传时间" align="center" width="160"></el-table-column>
-                <el-table-column label="操作" align="center" width="240">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 240">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('serverFile:list') && row.editable" size="small" @click="openPreview(row, false)">预览</el-button>
-                        <el-button v-if="hasPerm('serverFile:edit') && row.editable" size="small" type="primary" @click="openPreview(row, true)">编辑</el-button>
-                        <el-button v-if="hasPerm('serverFile:download')" size="small" @click="downloadFile(row)">下载</el-button>
-                        <el-button v-if="hasPerm('serverFile:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('serverFile:list') && row.editable" size="small" @click="openPreview(row, false)">预览</el-button>
+                            <el-button v-if="hasPerm('serverFile:edit') && row.editable" size="small" type="primary" @click="openPreview(row, true)">编辑</el-button>
+                            <el-button v-if="hasPerm('serverFile:download')" size="small" @click="downloadFile(row)">下载</el-button>
+                            <el-button v-if="hasPerm('serverFile:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('serverFile:list') && row.editable" @click="openPreview(row, false)">预览</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('serverFile:edit') && row.editable" @click="openPreview(row, true)">编辑</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('serverFile:download')" @click="downloadFile(row)">下载</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('serverFile:delete')" @click="removeOne(row)" divided>删除</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

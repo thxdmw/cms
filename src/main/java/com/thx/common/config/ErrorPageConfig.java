@@ -7,11 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 /**
- * 配置系统后台出错时跳转到的错误页面
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 把 Spring Boot 内置 Tomcat 容器级别的 403/404/500 错误统一转发到自定义的
+ * /error/xxx 路径（对应 templates/error/ 下的模板），而不是使用默认的白标错误页。
  */
 @Component
 public class ErrorPageConfig implements ErrorPageRegistrar {

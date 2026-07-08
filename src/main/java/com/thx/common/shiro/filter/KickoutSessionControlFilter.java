@@ -26,11 +26,10 @@ import java.util.LinkedList;
 import java.util.Map;
 
 /**
- * 踢出用户
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 限制同一账号同时在线会话数的 Shiro 过滤器：每个用户名在缓存里维护一个会话 id 队列
+ * （见 setCacheManager 存到 {@link CoreConst#SHIRO_REDIS_CACHE_NAME} 对应的缓存），
+ * 超过 maxSession 时踢出最早（或最晚，取决于 kickoutAfter）登录的那个会话，
+ * 被踢会话再次访问时会被重定向到 kickoutUrl（Ajax 请求则返回 JSON 提示）。
  */
 @Slf4j
 @Setter

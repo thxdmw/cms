@@ -1,25 +1,23 @@
 package com.thx.module.agent.service;
 
-import com.thx.module.admin.pojo.LogMessage;
+import com.thx.common.log.LogMessagePublisher;
 
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
-
-public interface LogService {
+/**
+ * 日志查询与统计服务。继承 {@link LogMessagePublisher} 是为了同时承担"接收 Appender 推来的
+ * 实时日志并转发给前端"这个职责（具体实现见 LogServiceImpl.sendLogMessage），
+ * 这样 common 包下的 CustomizeAppender 只需要认识 LogMessagePublisher 这一个小接口，
+ * 不需要知道 LogService 这个更大、属于业务 module 的接口。
+ */
+public interface LogService extends LogMessagePublisher {
 
     /**
      * 从日志文件中查询日志
      */
     Map<String, Object> searchLogs(Date startTime, Date endTime, String level, String keyword, int page, int size);
-
-    /**
-     * 发给 websocket
-     *
-     * @param logMessage
-     */
-    void sendLogMessage(LogMessage logMessage);
 
     /**
      * 获取日志统计信息

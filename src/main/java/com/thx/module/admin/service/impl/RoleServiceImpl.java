@@ -20,9 +20,8 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * {@link RoleService} 实现：角色的增改查、角色与权限的分配关系维护（addAssignPermission）、
+ * 按角色反查用户。
  */
 @Service
 @AllArgsConstructor

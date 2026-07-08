@@ -24,6 +24,18 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 供外部 AI Agent / 自动化客户端调用的博客读写接口（路径 /agent/api/blog/**）。
+ * <p>
+ * 这不是给内部管理后台用的普通接口：请求需要在请求头带上 {@code X-API-Key}，由
+ * {@link com.thx.common.interceptor.AgentApiAuthInterceptor} 统一拦截校验（配置项
+ * {@code agent.api.key}/{@code agent.api.enabled}），校验逻辑独立于 Shiro 会话体系。
+ * 方法上的 {@link com.thx.common.annotation.AnonymousAccess} 只是用来告诉 Shiro"这个方法不需要
+ * Shiro 登录会话"，并不代表接口是完全开放匿名的——真正的准入控制在上面这层 API Key 拦截器。
+ * <p>
+ * 本控制器自己不维护数据层，文章/分类/标签的读写全部复用 admin 模块的
+ * {@link BizArticleService}/{@link BizCategoryService}/{@link BizTagsService}。
+ */
 @Slf4j
 @RestController
 @RequestMapping("/agent/api/blog/")
@@ -36,9 +48,9 @@ public class BlogAgentApiController {
     private final Environment environment;
 
     /**
-     * 获取所有文章标题
+     * 获取所有已发布文章的标题
      *
-     * @return
+     * @return 所有文章标题拼接成的字符串，以英文逗号分隔
      */
     @AnonymousAccess
     @GetMapping("getAllBlogTitles")
@@ -50,10 +62,10 @@ public class BlogAgentApiController {
     }
 
     /**
-     * 根据文章标题获取文章markdown内容
+     * 根据文章标题获取文章 markdown 内容（标题需完全匹配）
      *
-     * @param title
-     * @return
+     * @param title 文章标题
+     * @return 文章的 markdown 正文；找不到对应标题的文章时返回提示字符串"没有标题对应的文章"
      */
     @AnonymousAccess
     @GetMapping("getBlogContentByTitle")
@@ -68,6 +80,12 @@ public class BlogAgentApiController {
         return "没有标题对应的文章";
     }
 
+    /**
+     * 获取所有已发布文章的精简信息（标题 + 可直接访问的完整详情页链接），供 Agent 浏览文章清单时使用。
+     * 链接的域名前缀根据当前激活的 Spring profile 拼接：{@code prd} 环境用线上域名，其余环境用本地地址。
+     *
+     * @return 文章标题 + 跳转地址列表，见 {@link BizArticleInfoVo}
+     */
     @AnonymousAccess
     @GetMapping("getAllBlogInfos")
     public ResponseVo<List<BizArticleInfoVo>> getAllBlogInfos() {

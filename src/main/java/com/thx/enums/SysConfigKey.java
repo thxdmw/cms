@@ -4,11 +4,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
- * 接口响应状态枚举类
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 站点配置项 Key 枚举，对应 sys_config 表中的 config_key。
+ * value 是数据库里实际存储的键名，describe 是后台配置页展示用的中文名称。
  */
 @Getter
 @AllArgsConstructor

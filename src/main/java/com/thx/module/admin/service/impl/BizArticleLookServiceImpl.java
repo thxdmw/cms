@@ -19,9 +19,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * {@link BizArticleLookService} 实现：文章浏览记录的写入与按天统计（供仪表盘访问趋势图使用）。
  */
 @Service
 @AllArgsConstructor
@@ -54,6 +52,10 @@ public class BizArticleLookServiceImpl extends ServiceImpl<BizArticleLookMapper,
         return userCountByDayMap;
     }
 
+    /**
+     * 构造最近 day 天、日期从早到晚有序的统计 Map，默认值为 0（或演示环境下的随机数）；
+     * 调用方再用真实统计数据覆盖有记录的日期，保证图表横轴每天都有点，不会因为某天没数据就断线
+     */
     private static Map<String, Integer> buildRecentDayMap(int day) {
         Date now = new Date();
         Map<String, Integer> map = MapUtil.newHashMap(true);

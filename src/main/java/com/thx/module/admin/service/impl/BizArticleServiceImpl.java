@@ -27,9 +27,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * {@link BizArticleService} 实现：文章的条件查询、首页各类榜单（轮播/推荐/最新/随机/热门）、
+ * 全文搜索、批量下载导出等。榜单类查询都加了 {@link Cacheable}（前台首页高频访问、数据变化不频繁），
+ * 对应的写操作（新增/删除）用 {@link CacheEvict} 让缓存失效，避免脏数据。
  */
 @Service
 @AllArgsConstructor

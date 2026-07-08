@@ -16,9 +16,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * {@link PermissionService} 实现：权限/菜单的增改查，以及把扁平权限列表组装成树形结构
+ * （buildPermissionTree，供后台侧边栏菜单和权限管理树形展示复用）。
  */
 @Service
 @AllArgsConstructor

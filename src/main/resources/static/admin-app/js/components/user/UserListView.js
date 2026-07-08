@@ -1,7 +1,7 @@
 import { nextTick, onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
-import { hasPerm } from '../../store.js';
+import { hasPerm, store } from '../../store.js';
 
 export default {
     setup() {
@@ -165,7 +165,7 @@ export default {
         onMounted(load);
 
         return {
-            users, total, loading, filters, pageNumber, pageSize,
+            store, users, total, loading, filters, pageNumber, pageSize,
             search, reset, onPageChange, onSizeChange, onSelectionChange, rolesText,
             dialogVisible, dialogTitle, saving, isEdit, form,
             openAdd, openEdit, save, removeOne, removeBatch,
@@ -209,11 +209,23 @@ export default {
                 <el-table-column label="用户状态" align="center" width="100">
                     <template #default="{row}">{{ row.status ? '启用' : '禁用' }}</template>
                 </el-table-column>
-                <el-table-column label="操作" align="center" width="220">
+                <el-table-column label="操作" align="center" :width="store.isMobile ? 70 : 220">
                     <template #default="{row}">
-                        <el-button v-if="hasPerm('user:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
-                        <el-button v-if="hasPerm('user:assignRole')" size="small" type="primary" @click="openAssignRole(row)">分配角色</el-button>
-                        <el-button v-if="hasPerm('user:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        <template v-if="!store.isMobile">
+                            <el-button v-if="hasPerm('user:edit')" size="small" type="primary" @click="openEdit(row)">编辑</el-button>
+                            <el-button v-if="hasPerm('user:assignRole')" size="small" type="primary" @click="openAssignRole(row)">分配角色</el-button>
+                            <el-button v-if="hasPerm('user:delete')" size="small" type="danger" @click="removeOne(row)">删除</el-button>
+                        </template>
+                        <el-dropdown v-else trigger="click">
+                            <el-button size="small" text><i class="fas fa-ellipsis-vertical"></i></el-button>
+                            <template #dropdown>
+                                <el-dropdown-menu>
+                                    <el-dropdown-item v-if="hasPerm('user:edit')" @click="openEdit(row)">编辑</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('user:assignRole')" @click="openAssignRole(row)">分配角色</el-dropdown-item>
+                                    <el-dropdown-item v-if="hasPerm('user:delete')" @click="removeOne(row)" divided>删除</el-dropdown-item>
+                                </el-dropdown-menu>
+                            </template>
+                        </el-dropdown>
                     </template>
                 </el-table-column>
             </el-table>

@@ -1,9 +1,8 @@
 package com.thx.module.admin.vo;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 百度链接主动推送接口（{@link com.thx.enums.SysConfigKey#BAIDU_PUSH_URL} 配置的地址）的响应结果，
+ * 字段名和百度接口原始 JSON 返回字段保持一致，供 {@link com.thx.common.util.PushArticleUtil} 反序列化使用。
  */
 public class BaiduPushResVo {
     private int success;    //成功推送的url条数

@@ -40,11 +40,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Shiro相关配置
- *
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * Shiro 权限框架的核心装配：认证/授权（securityManager + MyShiroRealm）、
+ * 会话管理（支持 Redis 或内存两种 SessionDAO，取决于 spring.cache.type）、
+ * 记住我（AES 加密 Cookie，见 rememberMeCipherKey）、同账号并发登录数限制
+ * （kickoutSessionControlFilter）、免登录路径放行（annoOrLogin 过滤器）。
  */
 @Slf4j
 @Configuration

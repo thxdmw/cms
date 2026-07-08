@@ -18,6 +18,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+/**
+ * FilePolicyServiceImpl 策略查找与文件校验测试
+ * 覆盖 namespace/policy 缺失或禁用时的拒绝、大小限制、扩展名与 MIME 白名单校验、
+ * 以及基于 Tika 内容检测识破伪造扩展名/Content-Type 的场景
+ */
 @ExtendWith(MockitoExtension.class)
 class FilePolicyServiceImplTest {
 

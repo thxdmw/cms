@@ -21,9 +21,8 @@ import java.util.Map;
 import static com.thx.common.util.CoreConst.SITE_STATIC_KEY;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * {@link SysConfigService} 实现：站点配置的键值对读写，selectAll() 结果做了缓存
+ * （站点设置页多个前台页面都要读，变化不频繁）。
  */
 @Service
 @AllArgsConstructor
@@ -31,6 +30,10 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
 
     private final SysConfigMapper sysConfigMapper;
 
+    /**
+     * 启动时把"是否开启静态化"这个配置项同步进 {@link CoreConst#SITE_STATIC} 这个内存标记，
+     * 避免请求处理链路上每次都要查一次配置表判断是否走静态化逻辑
+     */
     @PostConstruct
     public void init() {
         CoreConst.SITE_STATIC.set("on".equalsIgnoreCase(selectAll().getOrDefault(SITE_STATIC_KEY, "false")));

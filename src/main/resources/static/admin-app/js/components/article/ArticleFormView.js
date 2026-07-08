@@ -2,7 +2,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'v
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { api } from '../../api.js';
+import { store } from '../../store.js';
 import ArticleUploadField from './ArticleUploadField.js';
+
+// 移动端窄屏下编辑器初始高度调低，避免一进页面就要滚动一大段空白才能看到设置面板；
+// 桌面端保持原来的 1200，两个值都要跟 initEditor/toggleSidebar 里的 resize 调用同步
+const EDITOR_HEIGHT_DESKTOP = 1200;
+const EDITOR_HEIGHT_MOBILE = 520;
 
 export default {
     components: { ArticleUploadField },
@@ -65,7 +71,7 @@ export default {
             if (!window.editormd) return;
             editor = window.editormd('editor-md', {
                 width: '100%',
-                height: 1200,
+                height: store.isMobile ? EDITOR_HEIGHT_MOBILE : EDITOR_HEIGHT_DESKTOP,
                 path: '/libs/editor.md/lib/',
                 pluginPath: '/libs/editor.md/plugins/',
                 placeholder: '请输入文章内容（Markdown）...',
@@ -94,7 +100,9 @@ export default {
         function toggleSidebar() {
             sidebarCollapsed.value = !sidebarCollapsed.value;
             nextTick(() => {
-                setTimeout(() => { if (editor) editor.resize('100%', 1200); }, 200);
+                setTimeout(() => {
+                    if (editor) editor.resize('100%', store.isMobile ? EDITOR_HEIGHT_MOBILE : EDITOR_HEIGHT_DESKTOP);
+                }, 200);
             });
         }
 
@@ -159,14 +167,14 @@ export default {
         });
 
         return {
-            isEdit, form, selectedTags, categories, allTags, sidebarCollapsed, editorFullscreen,
+            store, isEdit, form, selectedTags, categories, allTags, sidebarCollapsed, editorFullscreen,
             toggleSidebar, save
         };
     },
     template: `
     <div>
         <el-row :gutter="16" style="align-items:flex-start;">
-            <el-col :span="sidebarCollapsed ? 24 : 16">
+            <el-col :xs="24" :sm="sidebarCollapsed ? 24 : 16">
                 <el-card>
                     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
                         <el-input v-model="form.title" placeholder="请输入文章标题"></el-input>
@@ -175,7 +183,7 @@ export default {
                     <div id="editor-md"><textarea style="display:none;"></textarea></div>
                 </el-card>
             </el-col>
-            <el-col :span="8" v-show="!sidebarCollapsed && !editorFullscreen" style="position:sticky; top:0;">
+            <el-col :xs="24" :sm="8" v-show="!sidebarCollapsed && !editorFullscreen" :style="store.isMobile ? '' : 'position:sticky; top:0;'">
                 <el-card>
                     <el-form label-position="top">
                         <el-form-item label="文章分类">

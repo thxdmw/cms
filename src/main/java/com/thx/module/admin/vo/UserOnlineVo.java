@@ -6,9 +6,8 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 在线用户展示对象，由 Shiro SessionDAO 里的活跃 Session 转换而来
+ * （见 UserServiceImpl#selectOnlineUsers），供后台"在线用户"页面查看/强制下线。
  */
 @Data
 public class UserOnlineVo implements Serializable {

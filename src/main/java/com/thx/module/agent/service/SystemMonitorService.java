@@ -3,8 +3,11 @@ package com.thx.module.agent.service;
 import java.util.Map;
 
 /**
- * 系统资源监控服务
- * 负责获取CPU、内存、磁盘等系统资源使用情况
+ * 系统资源监控服务，负责获取 CPU、内存、磁盘、JVM、线程等系统资源使用情况。
+ * <p>
+ * 数据消费方是 {@code com.thx.module.agent.controller.OpsAgentApiController}（路径 /agent/api/ops/**），
+ * 即供外部运维 Agent/自动化客户端调用的接口，走独立的 X-API-Key 鉴权（不经过 Shiro 会话），
+ * 不是内部管理后台随意调用的普通监控接口。
  */
 public interface SystemMonitorService {
 

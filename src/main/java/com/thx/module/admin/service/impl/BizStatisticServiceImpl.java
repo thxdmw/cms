@@ -13,10 +13,7 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 
 /**
- * Created with IntelliJ IDEA.
- *
- * @author tanghaixin
- * @date 2021/1/12 3:35 下午
+ * 后台首页统计服务实现，组合调用文章、评论、浏览记录三个服务汇总统计数据。
  */
 @Service
 @AllArgsConstructor
@@ -26,6 +23,10 @@ public class BizStatisticServiceImpl implements BizStatisticService {
     private final BizCommentService commentService;
     private final BizArticleLookService articleLookService;
 
+    /**
+     * 汇总文章总数、评论总数、总浏览量、独立访客数（按 user_ip 去重计数），
+     * 以及最近 6 天的每日浏览量与每日访问记录数趋势。
+     */
     @Override
     public StatisticVo indexStatistic() {
         long articleCount = articleService.count();

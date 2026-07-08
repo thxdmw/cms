@@ -11,9 +11,8 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 /**
- * @author tanghaixin
- * @version V1.0
- * @date 2019年9月11日
+ * 项目启动类。{@link EnableScheduling} 开启定时任务支持，供 file 模块的过期文件清理任务
+ * （{@code module.file.task}）等使用；启动完成后打印本机可访问的内网/外网地址，方便本地开发核对端口。
  */
 @Slf4j
 @SpringBootApplication

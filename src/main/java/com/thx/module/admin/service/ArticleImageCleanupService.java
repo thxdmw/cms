@@ -22,7 +22,8 @@ public class ArticleImageCleanupService {
     private final FileCleanupService fileCleanupService;
 
     /**
-     * 扫描并逻辑删除未被任何文章引用的孤立图片文件
+     * 扫描并逻辑删除未被任何文章引用的孤立图片文件。
+     * 逐个文件调用 {@link FileCleanupService#softDelete}，单个文件删除失败仅记录错误日志，不中断后续文件的处理。
      */
     public void cleanupOrphanArticleImages() {
         List<FileAsset> orphanFiles = bizArticleMapper.findOrphanArticleImages();
