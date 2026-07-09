@@ -55,6 +55,9 @@
         <!-- 通用工具库 -->
         <hutool.version>5.8.22</hutool.version>
         <jsoup.version>1.21.1</jsoup.version>
+
+        <!-- 支付宝官方 SDK：版本经 Maven Central 官方索引核实为核实时点最新稳定版 -->
+        <alipay-sdk.version>4.40.272.ALL</alipay-sdk.version>
     </properties>
 
     <dependencies>
@@ -190,6 +193,12 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!--支付宝官方 SDK：payment 模块支付宝 Adapter 使用，签名/协议/HTTP 调用全部委托 SDK，不自行实现-->
+        <dependency>
+            <groupId>com.alipay.sdk</groupId>
+            <artifactId>alipay-sdk-java</artifactId>
+            <version>${alipay-sdk.version}</version>
         </dependency>
 
 

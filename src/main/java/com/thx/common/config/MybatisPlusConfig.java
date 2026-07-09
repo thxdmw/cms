@@ -9,11 +9,12 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
  * Spring 事务、MyBatis-Plus 分页插件、Mapper 包扫描配置。
- * 三个业务模块（admin/tools/file）各自维护自己的 mapper 包，统一在这里配置扫描路径。
+ * 各业务模块（admin/tools/file/payment）各自维护自己的 mapper 包，统一在这里配置扫描路径。
  */
 @EnableTransactionManagement
 @Configuration
-@MapperScan(basePackages = {"com.thx.module.admin.mapper", "com.thx.module.tools.mapper", "com.thx.module.file.mapper"})
+@MapperScan(basePackages = {"com.thx.module.admin.mapper", "com.thx.module.tools.mapper", "com.thx.module.file.mapper",
+        "com.thx.module.payment.repository.mapper"})
 public class MybatisPlusConfig {
 
     /**

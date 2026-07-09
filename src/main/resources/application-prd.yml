@@ -102,3 +102,15 @@ cms:
         endpoint: ${MINIO_ENDPOINT}
         access-key: ${MINIO_ACCESS_KEY}
         secret-key: ${MINIO_SECRET_KEY}
+  payment:
+    # 生产环境不允许有默认值兜底，必须显式配置，缺失时启动直接失败，不能带着一个已知的弱密钥上线
+    master-key: ${PAYMENT_MASTER_KEY}
+    # 支付宝服务器能访问到的公网回调地址，如 https://cms.thxdxw.cn
+    public-base-url: ${PAYMENT_PUBLIC_BASE_URL}
+    reconcile:
+      enabled: true
+      processing-stale-minutes: 10
+      batch-size: 50
+    event:
+      enabled: true
+      batch-size: 50

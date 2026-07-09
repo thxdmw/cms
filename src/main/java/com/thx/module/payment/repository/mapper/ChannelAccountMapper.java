@@ -1,0 +1,7 @@
+package com.thx.module.payment.repository.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.thx.module.payment.domain.ChannelAccount;
+
+public interface ChannelAccountMapper extends BaseMapper<ChannelAccount> {
+}
