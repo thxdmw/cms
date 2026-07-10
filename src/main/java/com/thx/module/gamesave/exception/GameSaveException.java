@@ -2,7 +2,7 @@ package com.thx.module.gamesave.exception;
 
 import lombok.Getter;
 
-/** GameSave 模块业务异常。 */
+/** GameSave 模块业务异常，统一携带 HTTP 状态码和稳定业务错误码。 */
 @Getter
 public class GameSaveException extends RuntimeException {
 
@@ -17,5 +17,21 @@ public class GameSaveException extends RuntimeException {
 
     public static GameSaveException badRequest(String code, String message) {
         return new GameSaveException(400, code, message);
+    }
+
+    public static GameSaveException unauthorized(String code, String message) {
+        return new GameSaveException(401, code, message);
+    }
+
+    public static GameSaveException forbidden(String code, String message) {
+        return new GameSaveException(403, code, message);
+    }
+
+    public static GameSaveException notFound(String code, String message) {
+        return new GameSaveException(404, code, message);
+    }
+
+    public static GameSaveException conflict(String code, String message) {
+        return new GameSaveException(409, code, message);
     }
 }
