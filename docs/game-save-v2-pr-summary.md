@@ -1,3 +1,7 @@
-# Draft PR summary
+# GameSave V2 PR 摘要
 
-Introduces the GameSave V2 backend foundation on top of the existing file-system module. The branch intentionally stops before public GameSave REST endpoints so the desktop client cannot accidentally be wired to the file API key authentication model.
+本 PR 在现有 `module.file` 文件系统基建之上新增 `module.gamesave`，完成独立账号、设备 Token、云端逻辑游戏库、用户级内容对象去重、不可变 Snapshot Manifest 和同步 HEAD CAS。
+
+核心安全边界没有改变：Windows 客户端只调用 `/api/game-save/v1/**`，禁止直接调用 `/api/v1/files`，禁止持有文件系统 App API Key。
+
+当前 PR 仍保持 Draft，合并前必须完成 JDK 8 构建、数据库初始化验证和并发 CAS 测试。
