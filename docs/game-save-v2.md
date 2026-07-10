@@ -89,7 +89,7 @@ code = SYNC_CONFLICT
 
 ## 合并前验证
 
-除自动构建外，还需要在测试 MySQL/MinIO 环境验证数据库初始化、设备 Token 轮换、并发内容对象上传和双设备 HEAD CAS 冲突。
+除自动构建外，还需要在测试 MySQL/MinIO 环境验证数据库初始化、设备 Token 轮换、并发内容对象上传、双设备 HEAD CAS 冲突，以及客户端到 CMS 的完整同步闭环。
 
 ## 尚未实现
 
