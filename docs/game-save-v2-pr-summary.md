@@ -4,4 +4,6 @@
 
 核心安全边界没有改变：Windows 客户端只调用 `/api/game-save/v1/**`，禁止直接调用 `/api/v1/files`，禁止持有文件系统 App API Key。
 
-当前 PR 仍保持 Draft，合并前必须完成 JDK 8 构建、数据库初始化验证和并发 CAS 测试。
+所有 GameSave 新增代码注释和项目文档统一使用中文。
+
+当前 PR 仍保持 Draft，合并前必须完成 JDK 8 自动构建、数据库初始化验证和并发 CAS 测试。
