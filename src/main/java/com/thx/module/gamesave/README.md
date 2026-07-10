@@ -1,24 +1,62 @@
-# GameSave Module
+# GameSave 模块
 
-GameSave 管理游戏元数据、设备、不可变快照、用户级内容对象和同步 HEAD。
+`com.thx.module.gamesave` 负责游戏存档版本和多设备同步语义，不直接操作 MinIO。
 
-依赖方向固定为：
+## 模块边界
 
-`module.gamesave -> module.file -> ObjectStorageClient -> MinIO`
+```text
+Windows 客户端
+    ↓ 设备 Token
+GameSave REST API
+    ↓
+module.gamesave
+    ↓ 内部 FileCallerContext
+module.file
+    ↓
+ObjectStorageClient
+    ↓
+MinIO
+```
 
-约束：
+GameSave 负责：
 
-- GameSave 不直接注入 `FileAssetMapper`，文件查询通过 file 模块门面完成。
-- GameSave 不直接调用 MinIO。
-- Windows 客户端不直接调用 `/api/v1/files`，也不持有 File App API Key。
-- SHA-256 + size 是第一阶段内容对象身份；按 userId 隔离去重，不做跨用户物理去重。
-- Snapshot 不可变；多设备同步通过 `game_sync_head` CAS 推进，冲突返回 409，不自动合并二进制存档。
+- 独立用户账号与设备 Token。
+- 云端逻辑游戏库。
+- 用户级 SHA-256 内容对象去重。
+- 不可变快照和完整 Manifest。
+- 每个游戏唯一的同步 HEAD。
+- 基于数据库条件更新的 HEAD CAS 冲突检测。
 
-当前已落地：
+文件模块继续负责：
 
-- `docs/db/game_save.sql`：七张 GameSave 业务表和 `game-save/save-object` 文件策略。
-- `FileCallerContextFactory.forInternalApp(...)`：把 GameSave 用户身份桥接到 OWNER_ONLY 文件权限。
-- `FileObjectLookupService`：在 file 模块边界内按 Hash 查询文件资产并执行权限校验。
-- `GameObjectService`：支持 missing check、服务端 checksum 二次校验和并发唯一键去重。
+- FilePolicy。
+- OWNER_ONLY 权限。
+- App 配额。
+- 服务端 SHA-256。
+- 文件审计。
+- 逻辑删除和延迟物理清理。
+- MinIO 对象生命周期。
 
-下一阶段：设备 Token 鉴权、Snapshot 事务提交、Sync HEAD CAS 和 409 冲突响应。
+## 安全原则
+
+桌面客户端禁止直接调用 `/api/v1/files`，也禁止持有 `X-File-Api-Key`。
+
+客户端注册或登录后获得设备 Token，后续请求使用：
+
+```http
+Authorization: Bearer gs_xxx
+```
+
+设备 Token 明文只在签发响应中返回；服务端 `game_device.token_hash` 只保存 SHA-256。
+
+## 快照原则
+
+Snapshot 创建后不可覆盖。新存档永远创建新 Snapshot：
+
+```text
+Snapshot 100
+    ↓
+Snapshot 101
+```
+
+提交快照时先校验完整 Manifest 和所有内容对象，插入快照及文件清单、增加对象引用计数，最后使用 `game_sync_head` 条件 UPDATE 推进 HEAD。CAS 失败抛出 `409 SYNC_CONFLICT`，整个 Spring 事务回滚。
