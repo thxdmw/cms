@@ -22,13 +22,15 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-/** GameSave 用户级内容去重实现。 */
+/** GameSave 用户级内容寻址与去重实现。 */
 @Service
 @RequiredArgsConstructor
 public class GameObjectServiceImpl implements GameObjectService {
@@ -50,8 +52,19 @@ public class GameObjectServiceImpl implements GameObjectService {
         if (objects == null) {
             return missing;
         }
+
+        // 一个 Manifest 中多个路径可能引用相同内容，检查接口只返回唯一内容对象。
+        Map<String, ObjectDescriptor> uniqueObjects = new LinkedHashMap<>();
         for (ObjectDescriptor descriptor : objects) {
-            validateDescriptor(descriptor.getSha256(), descriptor.getSize());
+            if (descriptor == null) {
+                throw GameSaveException.badRequest("INVALID_OBJECT", "对象描述不能为空");
+            }
+            String hash = normalizeHash(descriptor.getSha256());
+            validateDescriptor(hash, descriptor.getSize());
+            uniqueObjects.put(hash + ":" + descriptor.getSize(), new ObjectDescriptor(hash, descriptor.getSize()));
+        }
+
+        for (ObjectDescriptor descriptor : uniqueObjects.values()) {
             if (findObject(caller.getUserId(), descriptor.getSha256(), descriptor.getSize()) == null) {
                 missing.add(descriptor);
             }
@@ -118,6 +131,17 @@ public class GameObjectServiceImpl implements GameObjectService {
             }
             throw duplicate;
         }
+    }
+
+    @Override
+    public GameObject requireOwnedObject(String sha256, long size, GameCallerContext caller) {
+        String normalizedHash = normalizeHash(sha256);
+        validateDescriptor(normalizedHash, size);
+        GameObject object = findObject(caller.getUserId(), normalizedHash, size);
+        if (object == null) {
+            throw GameSaveException.notFound("OBJECT_MISSING", "快照引用的内容对象尚未上传");
+        }
+        return object;
     }
 
     private GameObject findObject(String userId, String sha256, long size) {
