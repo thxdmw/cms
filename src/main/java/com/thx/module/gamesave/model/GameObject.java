@@ -8,7 +8,7 @@ import lombok.experimental.Accessors;
 
 import java.util.Date;
 
-/** 用户级内容寻址对象。二进制实体由 module.file 管理。 */
+/** 用户级内容寻址对象；二进制实体及物理生命周期统一由 module.file 管理。 */
 @Data
 @Accessors(chain = true)
 @TableName("game_object")
