@@ -19,7 +19,9 @@
     ↓
 提交完整 Snapshot Manifest
     ↓
-CAS 推进 game_sync_head
+Manifest 未变化？
+    ├─ 是：返回当前 HEAD，幂等 no-op
+    └─ 否：CAS 推进 game_sync_head
 ```
 
 ## 已实现
@@ -31,13 +33,42 @@ CAS 推进 game_sync_head
 - `game_snapshot`：不可变快照。
 - `game_snapshot_file`：快照完整文件清单。
 - `game_sync_head`：每个用户、每个游戏唯一同步 HEAD。
-- PBKDF2-SHA256 密码哈希。
-- 设备 Token 注册、登录和轮换。
+- PBKDF2-HMAC-SHA256 密码哈希。
+- 256 bit 随机设备 Token 注册、登录和轮换。
+- `game_device.token_hash` 唯一索引，设备认证热路径按 Hash 直接定位。
+- Bearer 认证 scheme 大小写不敏感解析。
 - 文件系统 `OWNER_ONLY` 内部身份桥接。
 - 内容对象缺失检查、上传、服务端 SHA-256 二次校验和并发去重。
+- GameObject 上传不包裹 FileSystem 上传长事务；文件上传完成自身事务后再建立 `game_object` 关系。
+- `game_object` 落库失败或 checksum 不一致时，逻辑删除本次刚上传的 FileAsset；补偿异常不覆盖原始异常。
 - 快照路径规范化、大小写不敏感判重和路径穿越拒绝。
 - 新增/修改/删除文件变化数统计。
-- Snapshot、Manifest、对象引用计数、HEAD CAS 同一 Spring 事务提交。
+- Snapshot、Manifest、对象引用计数、HEAD CAS 在同一 Spring 事务内提交。
+- 已有 HEAD 且 Manifest 完全一致时返回 `created=false`，不创建重复 Snapshot、不写重复 Manifest、不增加引用计数、不推进 HEAD。
+
+## 文件上传与事务边界
+
+对象存储不参与 MySQL 事务，因此不能把 MinIO 上传简单包在 GameObject 外层数据库事务里。
+
+当前边界：
+
+```text
+FileSystemService.upload
+    ↓
+MinIO put
+    ↓
+file_asset insert
+    ↓
+文件模块事务提交
+
+GameObjectService.put
+    ↓
+game_object insert
+    ├─ 成功：完成
+    └─ 失败：逻辑删除本次新上传 FileAsset
+```
+
+`FileSystemService.upload` 自己负责“MinIO 已写入但 file_asset 落库失败”的对象删除补偿；GameSave 负责“FileAsset 已成功建立但 game_object 关系建立失败”的业务层补偿。两个模块各自处理自己能够感知的失败边界。
 
 ## 客户端安全边界
 
@@ -77,11 +108,48 @@ HTTP 409
 code = SYNC_CONFLICT
 ```
 
-该异常触发事务回滚，已经插入的快照、Manifest 和对象引用计数不会残留。
+该异常触发快照事务回滚，已经插入的 Snapshot、Manifest 和对象引用计数不会残留。
 
-## 自动构建
+## 零变化同步
 
-`.github/workflows/gamesave-v2-build.yml` 使用 JDK 8 和 Maven 执行测试、打包验证，并使用 GitHub 官方维护的 checkout/setup-java Action。PR 在自动构建通过前保持 Draft。
+当当前 HEAD 已存在，且本次完整 Manifest 与父快照相比 `changedFileCount == 0`：
+
+```text
+不 INSERT game_snapshot
+不 INSERT game_snapshot_file
+不 reference_count + 1
+不推进 game_sync_head
+```
+
+服务端再次确认 HEAD/Version 未变化后返回：
+
+```text
+snapshotId = 当前 HEAD
+headVersion = 当前 Version
+changedFileCount = 0
+created = false
+```
+
+客户端据此显示“存档内容没有变化，未创建重复版本”。
+
+## 自动构建与测试
+
+`.github/workflows/gamesave-v2-build.yml` 使用 JDK 8 和 Maven：
+
+1. `mvn -B -DskipTests package` 验证 JDK 8 编译与打包。
+2. 执行 GameSave 专用单元测试。
+3. 保存 Maven 构建/测试日志 artifact。
+
+当前 GameSave 专用测试覆盖：
+
+- PBKDF2 密码哈希与随机 Salt。
+- 设备 Token 格式、随机性和 SHA-256。
+- checksum 不一致后的新上传 FileAsset 补偿删除。
+- `game_object` 插入失败后的 FileAsset 补偿删除。
+- 补偿删除失败不覆盖原始数据库异常。
+- 零变化 Manifest 不创建重复 Snapshot、不写 Manifest、不增加引用计数、不推进 HEAD。
+
+仓库原有部分 Spring 上下文/文件策略集成测试依赖真实 MySQL。无数据库 Runner 会在 `sysConfigServiceImpl` 初始化阶段连接失败，因此后续单独增加 MySQL service-container 集成测试，不把外部数据库缺失误判为 GameSave 编译失败。
 
 ## 注释与文档规范
 
@@ -93,6 +161,7 @@ code = SYNC_CONFLICT
 
 ## 尚未实现
 
+- 用户级存储配额原子预占与释放。
 - 云端 Snapshot 列表和时间线查询。
 - Snapshot Manifest 下载接口。
 - 客户端安全恢复事务。
