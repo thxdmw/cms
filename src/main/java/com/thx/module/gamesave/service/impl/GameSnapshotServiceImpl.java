@@ -78,6 +78,24 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
         long logicalSize = calculateLogicalSize(resolvedFiles);
         int changedFileCount = calculateChangedFileCount(currentHead.getHeadSnapshotId(), resolvedFiles);
 
+        // 已有 HEAD 且 Manifest 完全一致时直接返回当前版本，避免重复同步制造零变化快照、
+        // 重复 snapshot_file 元数据以及无意义的对象引用计数增长。
+        if (currentHead.getHeadSnapshotId() != null && changedFileCount == 0) {
+            GameSyncHead confirmedHead = findHead(caller.getUserId(), gameId);
+            if (confirmedHead == null
+                    || !Objects.equals(currentHead.getHeadSnapshotId(), confirmedHead.getHeadSnapshotId())
+                    || !Objects.equals(currentHead.getVersion(), confirmedHead.getVersion())) {
+                throw GameSaveException.conflict("SYNC_CONFLICT", "云端存档已被其他设备更新，请先处理同步冲突");
+            }
+            return new SnapshotCommitResult(
+                    currentHead.getHeadSnapshotId(),
+                    currentHead.getVersion(),
+                    resolvedFiles.size(),
+                    logicalSize,
+                    0,
+                    false);
+        }
+
         String snapshotId = UUIDUtil.uuid();
         GameSnapshot snapshot = new GameSnapshot()
                 .setSnapshotId(snapshotId)
@@ -122,7 +140,8 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
                 committedHead.getVersion(),
                 resolvedFiles.size(),
                 logicalSize,
-                changedFileCount);
+                changedFileCount,
+                true);
     }
 
     /** 将客户端 Manifest 解析为当前用户实际拥有的内容对象，并完成路径规范化与判重。 */
