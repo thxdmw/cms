@@ -30,7 +30,24 @@ jobs:
           cache: 'maven'
 
       - name: 执行测试
-        run: mvn -B test
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B test 2>&1 | tee maven-test.log
 
       - name: 打包验证
-        run: mvn -B -DskipTests package
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B -DskipTests package 2>&1 | tee maven-package.log
+
+      - name: 上传 Maven 构建日志
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gamesave-v2-maven-logs
+          path: |
+            maven-test.log
+            maven-package.log
+          if-no-files-found: warn
+          retention-days: 7
