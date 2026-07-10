@@ -15,9 +15,9 @@ import com.thx.module.gamesave.mapper.GameObjectMapper;
 import com.thx.module.gamesave.model.GameObject;
 import com.thx.module.gamesave.service.GameObjectService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /** GameSave 用户级内容寻址与去重实现。 */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GameObjectServiceImpl implements GameObjectService {
@@ -73,7 +74,6 @@ public class GameObjectServiceImpl implements GameObjectService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public GameObject put(MultipartFile file,
                           String expectedSha256,
                           long expectedSize,
@@ -97,6 +97,8 @@ public class GameObjectServiceImpl implements GameObjectService {
                 SAVE_NAMESPACE, normalizedHash, expectedSize, fileCaller);
         boolean uploadedNow = false;
         if (fileInfo == null) {
+            // FileSystemService.upload 自己负责文件元数据事务和对象存储写失败补偿。
+            // 这里不再开启外层数据库事务，避免后续异常回滚 file_asset，却无法回滚已经写入 MinIO 的对象。
             FileUploadResult uploadResult = fileSystemService.upload(
                     file, SAVE_NAMESPACE, caller.getUserId(), fileCaller);
             fileInfo = fileSystemService.get(uploadResult.getFileId(), fileCaller);
@@ -105,7 +107,7 @@ public class GameObjectServiceImpl implements GameObjectService {
 
         if (!normalizedHash.equals(normalizeHash(fileInfo.getSha256())) || expectedSize != fileInfo.getSize()) {
             if (uploadedNow) {
-                fileSystemService.delete(fileInfo.getFileId(), fileCaller);
+                cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
             }
             throw GameSaveException.badRequest("CHECKSUM_MISMATCH", "服务端文件校验结果与客户端对象描述不一致");
         }
@@ -124,12 +126,17 @@ public class GameObjectServiceImpl implements GameObjectService {
         } catch (DuplicateKeyException duplicate) {
             GameObject winner = findObject(caller.getUserId(), normalizedHash, expectedSize);
             if (uploadedNow) {
-                fileSystemService.delete(fileInfo.getFileId(), fileCaller);
+                cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
             }
             if (winner != null) {
                 return winner;
             }
             throw duplicate;
+        } catch (RuntimeException exception) {
+            if (uploadedNow) {
+                cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
+            }
+            throw exception;
         }
     }
 
@@ -142,6 +149,18 @@ public class GameObjectServiceImpl implements GameObjectService {
             throw GameSaveException.notFound("OBJECT_MISSING", "快照引用的内容对象尚未上传");
         }
         return object;
+    }
+
+    /**
+     * 清理本次请求刚上传、但未成功建立 game_object 关系的文件资产。
+     * 清理异常只记录日志，不能覆盖真正的业务/数据库异常；文件模块自己的清理任务负责后续重试。
+     */
+    private void cleanupUploadedFile(String fileId, FileCallerContext caller) {
+        try {
+            fileSystemService.delete(fileId, caller);
+        } catch (RuntimeException cleanupException) {
+            log.error("GameSave 内容对象补偿删除失败，等待文件清理机制后续处理: fileId={}", fileId, cleanupException);
+        }
     }
 
     private GameObject findObject(String userId, String sha256, long size) {
