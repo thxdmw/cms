@@ -10,5 +10,6 @@
 - [ ] 不同用户相同 SHA-256 内容不能互相复用 `OWNER_ONLY` 文件资产。
 - [ ] 两个事务使用相同 expected HEAD 提交时，只允许一个推进 HEAD。
 - [ ] CAS 失败事务中的 Snapshot、Manifest 和引用计数全部回滚。
+- [ ] 客户端到 CMS 真实同步闭环完成集成验证。
 
 稳定协议字段和错误码使用英文标识；Java 注释和 GameSave 文档统一使用中文。
