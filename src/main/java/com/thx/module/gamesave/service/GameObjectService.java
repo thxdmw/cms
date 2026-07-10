@@ -10,9 +10,12 @@ import java.util.List;
 /** GameSave 内容对象门面。 */
 public interface GameObjectService {
 
-    /** 返回当前用户尚未持有的内容对象。 */
+    /** 返回当前用户尚未持有的内容对象，并按 sha256+size 去重。 */
     List<ObjectDescriptor> findMissing(List<ObjectDescriptor> objects, GameCallerContext caller);
 
     /** 上传或复用内容对象；服务端必须重新校验实际 SHA-256 与大小。 */
     GameObject put(MultipartFile file, String expectedSha256, long expectedSize, GameCallerContext caller);
+
+    /** 快照提交时解析当前用户已有内容对象；不存在时拒绝提交 Manifest。 */
+    GameObject requireOwnedObject(String sha256, long size, GameCallerContext caller);
 }
