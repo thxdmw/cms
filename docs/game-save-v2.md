@@ -83,6 +83,10 @@ code = SYNC_CONFLICT
 
 `.github/workflows/gamesave-v2-build.yml` 使用 JDK 8 和 Maven 执行测试、打包验证。PR 在自动构建通过前保持 Draft。
 
+## 注释与文档规范
+
+`module.gamesave` 新增 Java 注释和 GameSave 专用文档统一使用中文。稳定协议字段、HTTP Header、数据库表名和业务错误码保留英文标识，避免破坏接口契约。
+
 ## 尚未实现
 
 - 云端 Snapshot 列表和时间线查询。
