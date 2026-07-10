@@ -81,7 +81,7 @@ code = SYNC_CONFLICT
 
 ## 自动构建
 
-`.github/workflows/gamesave-v2-build.yml` 使用 JDK 8 和 Maven 执行测试、打包验证。PR 在自动构建通过前保持 Draft。
+`.github/workflows/gamesave-v2-build.yml` 使用 JDK 8 和 Maven 执行测试、打包验证，并使用 GitHub 官方维护的 checkout/setup-java Action。PR 在自动构建通过前保持 Draft。
 
 ## 注释与文档规范
 
