@@ -37,6 +37,7 @@ CREATE TABLE `game_device` (
     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_game_device_device_id` (`device_id`),
+    UNIQUE KEY `uk_game_device_token_hash` (`token_hash`),
     KEY `idx_game_device_user` (`user_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='GameSave 设备';
 
