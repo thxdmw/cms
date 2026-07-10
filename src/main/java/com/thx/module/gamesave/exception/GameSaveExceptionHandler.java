@@ -14,13 +14,14 @@ public class GameSaveExceptionHandler {
     @ExceptionHandler(GameSaveException.class)
     public ResponseEntity<GameSaveResponse<Void>> handleGameSaveException(GameSaveException exception) {
         return ResponseEntity.status(exception.getStatus())
-                .body(GameSaveResponse.error(exception.getStatus(), exception.getCode(), exception.getMessage()));
+                .body(GameSaveResponse.<Void>error(
+                        exception.getStatus(), exception.getCode(), exception.getMessage()));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<GameSaveResponse<Void>> handleUnknownException(Exception exception) {
         log.error("GameSave 接口发生未处理异常", exception);
         return ResponseEntity.status(500)
-                .body(GameSaveResponse.error(500, "INTERNAL_ERROR", "服务器内部错误"));
+                .body(GameSaveResponse.<Void>error(500, "INTERNAL_ERROR", "服务器内部错误"));
     }
 }
