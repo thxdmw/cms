@@ -2,8 +2,10 @@ package com.thx.module.gamesave.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.thx.common.util.UUIDUtil;
 import com.thx.module.gamesave.dto.GameLoginRequest;
 import com.thx.module.gamesave.dto.GameLoginResult;
+import com.thx.module.gamesave.dto.GameRegisterRequest;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameAccountMapper;
 import com.thx.module.gamesave.mapper.GameDeviceMapper;
@@ -13,13 +15,14 @@ import com.thx.module.gamesave.service.GameAuthService;
 import com.thx.module.gamesave.util.GamePasswordUtil;
 import com.thx.module.gamesave.util.GameTokenUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.regex.Pattern;
 
-/** GameSave 登录与设备 Token 轮换实现。 */
+/** GameSave 注册、登录与设备 Token 轮换实现。 */
 @Service
 @RequiredArgsConstructor
 public class GameAuthServiceImpl implements GameAuthService {
@@ -31,8 +34,35 @@ public class GameAuthServiceImpl implements GameAuthService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public GameLoginResult register(GameRegisterRequest request) {
+        if (request == null) {
+            throw GameSaveException.badRequest("INVALID_REGISTER_REQUEST", "注册请求不能为空");
+        }
+        validateIdentityFields(request.getUsername(), request.getPassword(), request.getDeviceId(), request.getDeviceName());
+        if (request.getPassword().length() < 8 || request.getPassword().length() > 256) {
+            throw GameSaveException.badRequest("INVALID_PASSWORD", "密码长度必须为 8-256 个字符");
+        }
+
+        GameAccount account = new GameAccount()
+                .setUserId(UUIDUtil.uuid())
+                .setUsername(request.getUsername().trim())
+                .setPasswordHash(GamePasswordUtil.hashPassword(request.getPassword()))
+                .setStatus(1);
+        try {
+            gameAccountMapper.insert(account);
+        } catch (DuplicateKeyException duplicate) {
+            throw GameSaveException.conflict("USERNAME_EXISTS", "用户名已存在");
+        }
+        return issueDeviceToken(account, request.getDeviceId(), request.getDeviceName());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public GameLoginResult login(GameLoginRequest request) {
-        validateRequest(request);
+        if (request == null) {
+            throw GameSaveException.badRequest("INVALID_LOGIN_REQUEST", "登录请求不能为空");
+        }
+        validateIdentityFields(request.getUsername(), request.getPassword(), request.getDeviceId(), request.getDeviceName());
 
         GameAccount account = gameAccountMapper.selectOne(new LambdaQueryWrapper<GameAccount>()
                 .eq(GameAccount::getUsername, request.getUsername().trim())
@@ -42,8 +72,12 @@ public class GameAuthServiceImpl implements GameAuthService {
             // 用户不存在和密码错误返回相同结果，避免账号探测。
             throw GameSaveException.unauthorized("INVALID_CREDENTIALS", "用户名或密码错误");
         }
+        return issueDeviceToken(account, request.getDeviceId(), request.getDeviceName());
+    }
 
-        String deviceId = request.getDeviceId().trim();
+    /** 为当前账号创建或更新设备，并轮换设备 Token。 */
+    private GameLoginResult issueDeviceToken(GameAccount account, String rawDeviceId, String rawDeviceName) {
+        String deviceId = rawDeviceId.trim();
         GameDevice device = gameDeviceMapper.selectOne(new LambdaQueryWrapper<GameDevice>()
                 .eq(GameDevice::getDeviceId, deviceId)
                 .last("LIMIT 1"));
@@ -58,7 +92,7 @@ public class GameAuthServiceImpl implements GameAuthService {
             device = new GameDevice()
                     .setDeviceId(deviceId)
                     .setUserId(account.getUserId())
-                    .setDeviceName(request.getDeviceName().trim())
+                    .setDeviceName(rawDeviceName.trim())
                     .setTokenHash(tokenHash)
                     .setLastSeenTime(now)
                     .setStatus(1);
@@ -66,29 +100,28 @@ public class GameAuthServiceImpl implements GameAuthService {
         } else {
             gameDeviceMapper.update(null, new LambdaUpdateWrapper<GameDevice>()
                     .eq(GameDevice::getId, device.getId())
-                    .set(GameDevice::getDeviceName, request.getDeviceName().trim())
+                    .set(GameDevice::getDeviceName, rawDeviceName.trim())
                     .set(GameDevice::getTokenHash, tokenHash)
                     .set(GameDevice::getLastSeenTime, now)
                     .set(GameDevice::getStatus, 1));
         }
-
         return new GameLoginResult(account.getUserId(), deviceId, token);
     }
 
-    private void validateRequest(GameLoginRequest request) {
-        if (request == null) {
-            throw GameSaveException.badRequest("INVALID_LOGIN_REQUEST", "登录请求不能为空");
-        }
-        if (isBlank(request.getUsername()) || request.getUsername().trim().length() > 64) {
+    private void validateIdentityFields(String username,
+                                        String password,
+                                        String deviceId,
+                                        String deviceName) {
+        if (isBlank(username) || username.trim().length() > 64) {
             throw GameSaveException.badRequest("INVALID_USERNAME", "用户名不能为空且长度不能超过 64");
         }
-        if (request.getPassword() == null || request.getPassword().isEmpty()) {
-            throw GameSaveException.badRequest("INVALID_PASSWORD", "密码不能为空");
+        if (password == null || password.isEmpty() || password.length() > 256) {
+            throw GameSaveException.badRequest("INVALID_PASSWORD", "密码不能为空且长度不能超过 256");
         }
-        if (isBlank(request.getDeviceId()) || !DEVICE_ID_PATTERN.matcher(request.getDeviceId().trim()).matches()) {
+        if (isBlank(deviceId) || !DEVICE_ID_PATTERN.matcher(deviceId.trim()).matches()) {
             throw GameSaveException.badRequest("INVALID_DEVICE_ID", "deviceId 仅允许 8-64 位字母、数字、下划线或短横线");
         }
-        if (isBlank(request.getDeviceName()) || request.getDeviceName().trim().length() > 128) {
+        if (isBlank(deviceName) || deviceName.trim().length() > 128) {
             throw GameSaveException.badRequest("INVALID_DEVICE_NAME", "设备名称不能为空且长度不能超过 128");
         }
     }
