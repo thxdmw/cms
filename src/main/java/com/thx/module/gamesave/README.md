@@ -60,3 +60,7 @@ Snapshot 101
 ```
 
 提交快照时先校验完整 Manifest 和所有内容对象，插入快照及文件清单、增加对象引用计数，最后使用 `game_sync_head` 条件 UPDATE 推进 HEAD。CAS 失败抛出 `409 SYNC_CONFLICT`，整个 Spring 事务回滚。
+
+## 注释与文档
+
+GameSave 新增 Java 注释和专用文档统一使用中文；协议字段、代码标识符和稳定错误码保留英文。
