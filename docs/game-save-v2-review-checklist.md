@@ -1,6 +1,6 @@
 # GameSave V2 评审检查清单
 
-- [ ] 使用 JDK 8 兼容工具链执行 `mvn test` 和 `mvn package`。
+- [ ] GitHub Actions `JDK 8 Maven 构建` 通过。
 - [ ] 在一次性测试数据库中先执行 `docs/db/file_system.sql`，再执行 `docs/db/game_save.sql`。
 - [ ] 确认 `game-save-private` Bucket 已存在，或由部署初始化流程创建。
 - [ ] 注册后确认数据库只保存 PBKDF2 密码串，不保存明文密码。
