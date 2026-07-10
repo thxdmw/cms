@@ -26,6 +26,13 @@ import java.util.List;
 @RequestMapping("/api/game-save/v1/objects")
 @RequiredArgsConstructor
 public class GameObjectController {
+    /** 返回短时预签名下载地址；授权检查在生成地址前完成，客户端不会携带 Token 跳转到对象存储。 */
+    @org.springframework.web.bind.annotation.GetMapping("/{objectId}/download-url")
+    public GameSaveResponse<String> getDownloadUrl(@org.springframework.web.bind.annotation.PathVariable String objectId,
+                                                    HttpServletRequest servletRequest) {
+        GameCallerContext caller = GameCallerContextResolver.resolve(servletRequest);
+        return GameSaveResponse.success(gameObjectService.getDownloadUrl(objectId, caller));
+    }
 
     private final GameObjectService gameObjectService;
 

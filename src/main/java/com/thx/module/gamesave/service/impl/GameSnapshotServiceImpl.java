@@ -41,6 +41,68 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class GameSnapshotServiceImpl implements GameSnapshotService {
+    @Override
+    public List<com.thx.module.gamesave.dto.SnapshotSummaryResult> listSnapshots(
+            String gameId, int limit, GameCallerContext caller) {
+        requireOwnedGame(gameId, caller.getUserId());
+        int safeLimit = Math.max(1, Math.min(limit, 200));
+        List<GameSnapshot> snapshots = gameSnapshotMapper.selectList(
+                new LambdaQueryWrapper<GameSnapshot>()
+                        .eq(GameSnapshot::getGameId, gameId.trim())
+                        .eq(GameSnapshot::getUserId, caller.getUserId())
+                        .eq(GameSnapshot::getStatus, ACTIVE)
+                        .orderByDesc(GameSnapshot::getCreateTime)
+                        .last("LIMIT " + safeLimit));
+        List<com.thx.module.gamesave.dto.SnapshotSummaryResult> results =
+                new ArrayList<>(snapshots.size());
+        for (GameSnapshot snapshot : snapshots) {
+            results.add(com.thx.module.gamesave.dto.SnapshotSummaryResult.from(snapshot));
+        }
+        return results;
+    }
+    @Override
+    public com.thx.module.gamesave.dto.SnapshotManifestResult getSnapshot(
+            String gameId,
+            String snapshotId,
+            GameCallerContext caller) {
+        requireOwnedGame(gameId, caller.getUserId());
+        if (snapshotId == null || snapshotId.trim().isEmpty()) {
+            throw GameSaveException.badRequest("INVALID_SNAPSHOT_ID", "快照 ID 不能为空");
+        }
+
+        GameSnapshot snapshot = gameSnapshotMapper.selectOne(new LambdaQueryWrapper<GameSnapshot>()
+                .eq(GameSnapshot::getSnapshotId, snapshotId.trim())
+                .eq(GameSnapshot::getGameId, gameId.trim())
+                .eq(GameSnapshot::getUserId, caller.getUserId())
+                .eq(GameSnapshot::getStatus, ACTIVE)
+                .last("LIMIT 1"));
+        if (snapshot == null) {
+            throw GameSaveException.notFound("SNAPSHOT_NOT_FOUND", "快照不存在或无权访问");
+        }
+
+        List<GameSnapshotFile> snapshotFiles = gameSnapshotFileMapper.selectList(
+                new LambdaQueryWrapper<GameSnapshotFile>()
+                        .eq(GameSnapshotFile::getSnapshotId, snapshot.getSnapshotId())
+                        .orderByAsc(GameSnapshotFile::getRelativePath));
+        List<com.thx.module.gamesave.dto.SnapshotManifestFileResult> files =
+                new ArrayList<>(snapshotFiles.size());
+        for (GameSnapshotFile file : snapshotFiles) {
+            files.add(new com.thx.module.gamesave.dto.SnapshotManifestFileResult(
+                    file.getRelativePath(),
+                    file.getObjectId(),
+                    file.getSha256(),
+                    file.getSize()));
+        }
+        return new com.thx.module.gamesave.dto.SnapshotManifestResult(
+                snapshot.getSnapshotId(),
+                snapshot.getGameId(),
+                snapshot.getDeviceId(),
+                snapshot.getParentSnapshotId(),
+                snapshot.getTriggerType(),
+                snapshot.getDescription(),
+                snapshot.getCreateTime(),
+                files);
+    }
 
     private static final String ACTIVE = "ACTIVE";
     private static final Set<String> ALLOWED_TRIGGER_TYPES = new HashSet<>(

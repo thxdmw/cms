@@ -7,6 +7,12 @@ import com.thx.module.gamesave.dto.SyncHeadResult;
 
 /** GameSave 不可变快照与同步 HEAD 服务。 */
 public interface GameSnapshotService {
+    /** 按创建时间倒序读取当前用户指定游戏的快照时间线。 */
+    java.util.List<com.thx.module.gamesave.dto.SnapshotSummaryResult> listSnapshots(
+            String gameId, int limit, GameCallerContext caller);
+    /** 读取当前用户拥有的指定不可变快照及其完整 Manifest。 */
+    com.thx.module.gamesave.dto.SnapshotManifestResult getSnapshot(
+            String gameId, String snapshotId, GameCallerContext caller);
 
     /** 获取当前用户指定游戏的云端 HEAD。 */
     SyncHeadResult getHead(String gameId, GameCallerContext caller);

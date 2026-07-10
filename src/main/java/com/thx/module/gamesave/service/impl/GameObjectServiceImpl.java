@@ -35,6 +35,21 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class GameObjectServiceImpl implements GameObjectService {
+    @Override
+    public String getDownloadUrl(String objectId, GameCallerContext caller) {
+        if (objectId == null || objectId.trim().isEmpty()) {
+            throw GameSaveException.badRequest("INVALID_OBJECT_ID", "对象 ID 不能为空");
+        }
+        GameObject object = gameObjectMapper.selectOne(new LambdaQueryWrapper<GameObject>()
+                .eq(GameObject::getObjectId, objectId.trim())
+                .eq(GameObject::getUserId, caller.getUserId())
+                .eq(GameObject::getStatus, ACTIVE)
+                .last("LIMIT 1"));
+        if (object == null) {
+            throw GameSaveException.notFound("OBJECT_NOT_FOUND", "内容对象不存在或无权访问");
+        }
+        return fileSystemService.getDownloadUrl(object.getFileId(), fileCaller(caller));
+    }
 
     private static final String APP_ID = "game-save";
     private static final String SAVE_NAMESPACE = "save-object";

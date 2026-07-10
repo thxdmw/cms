@@ -9,6 +9,11 @@ import java.util.List;
 
 /** GameSave 内容对象门面。 */
 public interface GameObjectService {
+    /**
+     * 为当前用户拥有的内容对象申请短时下载地址。
+     * 地址由文件模块生成；GameSave 不向客户端暴露任何文件系统应用密钥。
+     */
+    String getDownloadUrl(String objectId, GameCallerContext caller);
 
     /** 返回当前用户尚未持有的内容对象，并按 sha256+size 去重。 */
     List<ObjectDescriptor> findMissing(List<ObjectDescriptor> objects, GameCallerContext caller);

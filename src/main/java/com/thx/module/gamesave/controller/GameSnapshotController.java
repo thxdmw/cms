@@ -24,6 +24,24 @@ import javax.servlet.http.HttpServletRequest;
 @RequestMapping("/api/game-save/v1/games/{gameId}")
 @RequiredArgsConstructor
 public class GameSnapshotController {
+    /** 返回当前用户可见的快照时间线；限制在 1 到 200 条，避免无界查询。 */
+    @GetMapping("/snapshots")
+    public GameSaveResponse<java.util.List<com.thx.module.gamesave.dto.SnapshotSummaryResult>> listSnapshots(
+            @PathVariable String gameId,
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "100") int limit,
+            HttpServletRequest servletRequest) {
+        GameCallerContext caller = GameCallerContextResolver.resolve(servletRequest);
+        return GameSaveResponse.success(gameSnapshotService.listSnapshots(gameId, limit, caller));
+    }
+    /** 读取指定快照的完整文件清单，用于客户端安全恢复前的下载和校验。 */
+    @GetMapping("/snapshots/{snapshotId}")
+    public GameSaveResponse<com.thx.module.gamesave.dto.SnapshotManifestResult> getSnapshot(
+            @PathVariable String gameId,
+            @PathVariable String snapshotId,
+            HttpServletRequest servletRequest) {
+        GameCallerContext caller = GameCallerContextResolver.resolve(servletRequest);
+        return GameSaveResponse.success(gameSnapshotService.getSnapshot(gameId, snapshotId, caller));
+    }
 
     private final GameSnapshotService gameSnapshotService;
 
