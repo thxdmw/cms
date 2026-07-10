@@ -87,6 +87,10 @@ code = SYNC_CONFLICT
 
 `module.gamesave` 新增 Java 注释和 GameSave 专用文档统一使用中文。稳定协议字段、HTTP Header、数据库表名和业务错误码保留英文标识，避免破坏接口契约。
 
+## 合并前验证
+
+除自动构建外，还需要在测试 MySQL/MinIO 环境验证数据库初始化、设备 Token 轮换、并发内容对象上传和双设备 HEAD CAS 冲突。
+
 ## 尚未实现
 
 - 云端 Snapshot 列表和时间线查询。
