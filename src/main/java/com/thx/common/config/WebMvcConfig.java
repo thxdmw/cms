@@ -72,10 +72,12 @@ public class WebMvcConfig implements WebMvcConfigurer {
         registry.addInterceptor(fileAuthInterceptor)
                 .addPathPatterns("/api/v1/files/**");
 
-        // GameSave 使用用户级设备 Token；登录接口是唯一免设备 Token 的 GameSave API。
+        // GameSave 使用用户级设备 Token；注册和登录是唯二免设备 Token 的 GameSave API。
         registry.addInterceptor(gameDeviceTokenInterceptor)
                 .addPathPatterns("/api/game-save/v1/**")
-                .excludePathPatterns("/api/game-save/v1/auth/login");
+                .excludePathPatterns(
+                        "/api/game-save/v1/auth/register",
+                        "/api/game-save/v1/auth/login");
     }
 
     @Override
