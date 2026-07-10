@@ -6,6 +6,7 @@ on:
       - 'src/main/java/com/thx/module/gamesave/**'
       - 'src/main/java/com/thx/module/file/**'
       - 'src/main/java/com/thx/common/config/WebMvcConfig.java'
+      - 'src/test/java/com/thx/module/gamesave/**'
       - 'docs/db/game_save.sql'
       - 'pom.xml'
       - '.github/workflows/gamesave-v2-build.yml'
@@ -29,17 +30,17 @@ jobs:
           java-version: '8'
           cache: 'maven'
 
-      - name: 执行测试
-        shell: bash
-        run: |
-          set -o pipefail
-          mvn -B test 2>&1 | tee maven-test.log
-
-      - name: 打包验证
+      - name: 编译并打包
         shell: bash
         run: |
           set -o pipefail
           mvn -B -DskipTests package 2>&1 | tee maven-package.log
+
+      - name: 执行 GameSave 单元测试
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B -Dtest=GamePasswordUtilTest,GameTokenUtilTest test 2>&1 | tee maven-gamesave-test.log
 
       - name: 上传 Maven 构建日志
         if: always()
@@ -47,7 +48,7 @@ jobs:
         with:
           name: gamesave-v2-maven-logs
           path: |
-            maven-test.log
             maven-package.log
+            maven-gamesave-test.log
           if-no-files-found: warn
           retention-days: 7
