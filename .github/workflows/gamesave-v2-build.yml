@@ -8,6 +8,7 @@ on:
       - 'src/main/java/com/thx/common/config/WebMvcConfig.java'
       - 'src/test/java/com/thx/module/gamesave/**'
       - 'docs/db/game_save.sql'
+      - 'docs/game-save-v2*.md'
       - 'pom.xml'
       - '.github/workflows/gamesave-v2-build.yml'
   workflow_dispatch:
