@@ -120,9 +120,10 @@ CREATE TABLE `game_sync_head` (
     UNIQUE KEY `uk_game_sync_head_user_game` (`user_id`, `game_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='游戏同步 HEAD，使用 CAS 推进';
 
--- 文件系统接入方与策略。生产环境必须替换 API Key Hash；GameSave 内部调用不向客户端分发该 Key。
+-- GameSave 只通过同 JVM 内部调用使用 module.file。默认写入不可逆的 sentinel hash，
+-- 不存在配套明文 API Key，避免公开仓库种子数据意外开放 /api/v1/files。
 INSERT INTO `file_app` (`app_id`, `app_name`, `api_key_hash`, `scopes`, `quota_bytes`, `status`)
-VALUES ('game-save', 'GameSave 存档同步', '89c12731b6962a35aa475d64a1e4f661228c3e62852c9407a482bcc9e5fc924a',
+VALUES ('game-save', 'GameSave 存档同步', 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
         'UPLOAD,READ,DELETE,LIST,PRESIGN', NULL, 1)
 ON DUPLICATE KEY UPDATE `app_name` = VALUES(`app_name`), `status` = VALUES(`status`);
 
