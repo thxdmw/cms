@@ -23,4 +23,6 @@ public interface GameObjectService {
 
     /** 快照提交时解析当前用户已有内容对象；不存在时拒绝提交 Manifest。 */
     GameObject requireOwnedObject(String sha256, long size, GameCallerContext caller);
+    /** 释放历史快照对对象的引用；最后一个引用消失时进入文件模块的逻辑删除流程。 */
+    void releaseSnapshotReference(String objectId, GameCallerContext caller);
 }

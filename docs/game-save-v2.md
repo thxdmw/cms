@@ -168,3 +168,16 @@ created = false
 - Snapshot 删除、引用计数递减和零引用对象释放。
 - 游戏进程退出自动快照。
 - 多设备冲突选择界面。
+
+## 设备管理与快照生命周期
+
+设备管理接口只接受经过设备 Bearer Token 认证的请求：
+
+- `GET /api/game-save/v1/devices` 返回当前账户的设备安全摘要，不返回 Token 或 Token Hash。
+- `DELETE /api/game-save/v1/devices/{deviceId}` 撤销其他设备；当前设备受到保护，避免当前会话被误撤销。
+
+历史快照通过 `DELETE /api/game-save/v1/games/{gameId}/snapshots/{snapshotId}` 删除。服务端先校验游戏、用户和快照归属，并拒绝删除当前同步 HEAD。删除事务依次释放每个内容对象引用，再使用带 `snapshot_id + user_id + game_id + ACTIVE` 条件的原子更新标记快照删除；并发状态变化会使整个事务回滚。
+
+内容对象引用降为零时，`game_object` 转为 `DELETED`，对应 FileAsset 进入文件模块既有的逻辑删除、宽限期和失败清理重试流程。仍被其他快照引用的对象不会删除。
+
+本地端到端环境见 `docs/gamesave-e2e.md`，脚本覆盖注册、设备登录、对象上传、两次快照提交、旧 HEAD 冲突、时间线、Manifest 和下载内容 SHA-256 校验。

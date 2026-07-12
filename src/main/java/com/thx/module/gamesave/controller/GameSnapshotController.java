@@ -10,6 +10,7 @@ import com.thx.module.gamesave.vo.GameSaveResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -54,6 +55,15 @@ public class GameSnapshotController {
     }
 
     /** 提交完整 Manifest；HEAD 已变化时返回 409 SYNC_CONFLICT。 */
+    /** 删除历史快照；当前 HEAD 不允许删除。 */
+    @DeleteMapping("/snapshots/{snapshotId}")
+    public GameSaveResponse<Void> deleteSnapshot(@PathVariable String gameId,
+                                                  @PathVariable String snapshotId,
+                                                  HttpServletRequest servletRequest) {
+        GameCallerContext caller = GameCallerContextResolver.resolve(servletRequest);
+        gameSnapshotService.deleteSnapshot(gameId, snapshotId, caller);
+        return GameSaveResponse.success("快照已删除", null);
+    }
     @PostMapping("/snapshots")
     @ResponseStatus(HttpStatus.CREATED)
     public GameSaveResponse<SnapshotCommitResult> commit(@PathVariable String gameId,

@@ -19,4 +19,6 @@ public interface GameSnapshotService {
 
     /** 提交完整 Manifest 并以 CAS 方式推进云端 HEAD。 */
     SnapshotCommitResult commit(String gameId, SnapshotCommitRequest request, GameCallerContext caller);
+    /** 删除非当前 HEAD 的历史快照并释放其内容对象引用。 */
+    void deleteSnapshot(String gameId, String snapshotId, GameCallerContext caller);
 }

@@ -124,6 +124,37 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void deleteSnapshot(String gameId, String snapshotId, GameCallerContext caller) {
+        requireOwnedGame(gameId, caller.getUserId());
+        if (snapshotId == null || snapshotId.trim().isEmpty()) {
+            throw GameSaveException.badRequest("INVALID_SNAPSHOT_ID", "快照 ID 不能为空");
+        }
+        GameSyncHead head = ensureAndGetHead(caller.getUserId(), gameId);
+        if (snapshotId.trim().equals(head.getHeadSnapshotId())) {
+            throw GameSaveException.badRequest("CANNOT_DELETE_HEAD", "不能删除当前同步 HEAD；请先创建或恢复其他版本");
+        }
+        GameSnapshot snapshot = gameSnapshotMapper.selectOne(new LambdaQueryWrapper<GameSnapshot>()
+                .eq(GameSnapshot::getSnapshotId, snapshotId.trim())
+                .eq(GameSnapshot::getUserId, caller.getUserId())
+                .eq(GameSnapshot::getGameId, gameId)
+                .eq(GameSnapshot::getStatus, ACTIVE)
+                .last("LIMIT 1"));
+        if (snapshot == null) {
+            throw GameSaveException.notFound("SNAPSHOT_NOT_FOUND", "快照不存在或已经删除");
+        }
+        List<GameSnapshotFile> files = gameSnapshotFileMapper.selectList(new LambdaQueryWrapper<GameSnapshotFile>()
+                .eq(GameSnapshotFile::getSnapshotId, snapshot.getSnapshotId()));
+        for (GameSnapshotFile file : files) {
+            gameObjectService.releaseSnapshotReference(file.getObjectId(), caller);
+        }
+        int updated = gameSnapshotMapper.markDeleted(
+                snapshot.getSnapshotId(), caller.getUserId(), gameId.trim());
+        if (updated != 1) {
+            throw GameSaveException.conflict("SNAPSHOT_STATE_CHANGED", "快照状态已变化，请重新加载时间线");
+        }
+    }
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public SnapshotCommitResult commit(String gameId,
                                        SnapshotCommitRequest request,
                                        GameCallerContext caller) {

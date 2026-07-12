@@ -14,4 +14,10 @@ public interface GameObjectMapper extends BaseMapper<GameObject> {
     @Update("UPDATE game_object SET reference_count = reference_count + 1 "
             + "WHERE object_id = #{objectId} AND user_id = #{userId} AND status = 'ACTIVE'")
     int incrementReference(@Param("objectId") String objectId, @Param("userId") String userId);
+
+    /** 只允许释放仍有快照引用的 ACTIVE 对象，避免引用计数变成负数。 */
+    @Update("UPDATE game_object SET reference_count = reference_count - 1 "
+            + "WHERE object_id = #{objectId} AND user_id = #{userId} "
+            + "AND status = 'ACTIVE' AND reference_count > 0")
+    int decrementReference(@Param("objectId") String objectId, @Param("userId") String userId);
 }

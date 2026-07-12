@@ -156,6 +156,34 @@ public class GameObjectServiceImpl implements GameObjectService {
     }
 
     @Override
+    public void releaseSnapshotReference(String objectId, GameCallerContext caller) {
+        if (objectId == null || objectId.trim().isEmpty()) {
+            throw GameSaveException.badRequest("INVALID_OBJECT_ID", "对象 ID 不能为空");
+        }
+        String normalizedObjectId = objectId.trim();
+        int updated = gameObjectMapper.decrementReference(normalizedObjectId, caller.getUserId());
+        if (updated != 1) {
+            throw GameSaveException.conflict("OBJECT_REFERENCE_CHANGED", "对象引用状态已变化，请重新加载快照时间线");
+        }
+
+        GameObject object = gameObjectMapper.selectOne(new LambdaQueryWrapper<GameObject>()
+                .eq(GameObject::getObjectId, normalizedObjectId)
+                .eq(GameObject::getUserId, caller.getUserId())
+                .last("LIMIT 1"));
+        if (object == null) {
+            throw GameSaveException.notFound("OBJECT_NOT_FOUND", "内容对象不存在");
+        }
+        if (object.getReferenceCount() != null && object.getReferenceCount() == 0L) {
+            FileCallerContext fileCaller = fileCaller(caller);
+            fileSystemService.delete(object.getFileId(), fileCaller);
+            gameObjectMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<GameObject>()
+                    .eq(GameObject::getObjectId, normalizedObjectId)
+                    .eq(GameObject::getUserId, caller.getUserId())
+                    .eq(GameObject::getReferenceCount, 0L)
+                    .set(GameObject::getStatus, "DELETED"));
+        }
+    }
+    @Override
     public GameObject requireOwnedObject(String sha256, long size, GameCallerContext caller) {
         String normalizedHash = normalizeHash(sha256);
         validateDescriptor(normalizedHash, size);
