@@ -110,6 +110,14 @@ try {
     $manifest = Invoke-GameSaveJson GET "/api/game-save/v1/games/$gameId/snapshots/$($commitB.data.snapshotId)" $null $tokenB
     Assert-That ($manifest.data.files.Count -eq 2) "Snapshot manifest is incomplete"
 
+    $policy = Invoke-GameSaveJson PUT "/api/game-save/v1/games/$gameId/retention" @{
+        enabled = $true; retentionCount = 1; retentionDays = 0
+    } $tokenB
+    Assert-That ($policy.data.enabled -eq $true) "Retention policy was not enabled"
+    $cleanup = Invoke-GameSaveJson POST "/api/game-save/v1/games/$gameId/retention/cleanup" @{} $tokenB
+    Assert-That ($cleanup.data.deletedSnapshotCount -eq 1) "Retention cleanup did not delete the historical snapshot"
+    $timelineAfterCleanup = Invoke-GameSaveJson GET "/api/game-save/v1/games/$gameId/snapshots?limit=10" $null $tokenB
+    Assert-That ($timelineAfterCleanup.data.Count -eq 1) "Retention cleanup removed the wrong snapshots"
     $downloadUrl = Invoke-GameSaveJson GET "/api/game-save/v1/objects/$($objectB.ObjectId)/download-url" $null $tokenB
     $downloaded = Join-Path $tempDirectory "downloaded.sav"
     Invoke-WebRequest -UseBasicParsing -Uri $downloadUrl.data -OutFile $downloaded

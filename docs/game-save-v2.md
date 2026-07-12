@@ -188,3 +188,8 @@ created = false
 上传校验、对象关系落库或并发唯一键竞争失败时释放本次预占。删除历史快照导致某个内容对象最后一个引用消失时，服务端先将对象按零引用条件标记删除，再释放对应容量。`GET /api/game-save/v1/account/quota` 返回配额、已用容量和剩余容量，且与其他 GameSave 业务接口一样受设备 Token 认证保护。
 
 新环境由 `docs/db/game_save.sql` 创建 `used_bytes`；已部署环境执行 `docs/db/game_save_quota_migration.sql`，并按现有 ACTIVE 内容对象重建已用容量。
+## 快照保留策略
+
+每个 `game_library` 可独立配置是否启用自动清理、最多保留快照数和最长保留天数。升级迁移默认关闭自动清理，因此不会在用户确认前删除任何现有版本。数量范围为 1 到 500；天数范围为 0 到 3650，0 表示不按时间清理。
+
+保留任务始终跳过当前 `game_sync_head.head_snapshot_id`。满足“超出数量”或“早于保留天数”任一条件的非 HEAD 快照会复用正常快照删除事务，递减对象引用、释放零引用文件和用户配额。后台任务启动五分钟后首次执行，之后每六小时执行；单个游戏每轮最多读取 2000 个快照，避免异常历史导致内存无界增长。用户也可调用 `POST /api/game-save/v1/games/{gameId}/retention/cleanup` 立即执行。

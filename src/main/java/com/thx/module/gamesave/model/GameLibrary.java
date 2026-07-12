@@ -23,6 +23,9 @@ public class GameLibrary {
     private String provider;
     private String providerGameId;
     private String coverFileId;
+    private Integer retentionEnabled;
+    private Integer retentionCount;
+    private Integer retentionDays;
     private Integer status;
     private Date createTime;
     private Date updateTime;

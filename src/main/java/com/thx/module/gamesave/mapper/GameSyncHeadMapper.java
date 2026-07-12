@@ -5,6 +5,7 @@ import com.thx.module.gamesave.model.GameSyncHead;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 /** 同步 HEAD 数据访问层，负责初始化和数据库级 CAS 推进。 */
@@ -32,4 +33,9 @@ public interface GameSyncHeadMapper extends BaseMapper<GameSyncHead> {
                        @Param("gameId") String gameId,
                        @Param("expectedHead") String expectedHead,
                        @Param("newHead") String newHead);
-}
+
+    /** 读取当前 HEAD，保留任务必须无条件保护该快照。 */
+    @Select("SELECT head_snapshot_id FROM game_sync_head "
+            + "WHERE user_id = #{userId} AND game_id = #{gameId} LIMIT 1")
+    String selectHeadSnapshotId(@Param("userId") String userId,
+                                @Param("gameId") String gameId);}

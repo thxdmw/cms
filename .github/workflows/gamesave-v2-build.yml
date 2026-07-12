@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          mvn -B -Dtest=GamePasswordUtilTest,GameTokenUtilTest,GameObjectServiceImplTest,GameSnapshotServiceImplTest,GameDeviceServiceImplTest,GameQuotaServiceImplTest test 2>&1 | tee maven-gamesave-test.log
+          mvn -B -Dtest=GamePasswordUtilTest,GameTokenUtilTest,GameObjectServiceImplTest,GameSnapshotServiceImplTest,GameDeviceServiceImplTest,GameQuotaServiceImplTest,GameRetentionServiceImplTest test 2>&1 | tee maven-gamesave-test.log
 
       - name: 上传 Maven 构建日志
         if: always()
