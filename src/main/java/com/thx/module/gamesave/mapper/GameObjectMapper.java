@@ -20,4 +20,10 @@ public interface GameObjectMapper extends BaseMapper<GameObject> {
             + "WHERE object_id = #{objectId} AND user_id = #{userId} "
             + "AND status = 'ACTIVE' AND reference_count > 0")
     int decrementReference(@Param("objectId") String objectId, @Param("userId") String userId);
-}
+
+    /** 仅将零引用的 ACTIVE 对象标记为删除，确保容量只释放一次。 */
+    @Update("UPDATE game_object SET status = 'DELETED' "
+            + "WHERE object_id = #{objectId} AND user_id = #{userId} "
+            + "AND status = 'ACTIVE' AND reference_count = 0")
+    int markDeletedIfUnreferenced(@Param("objectId") String objectId,
+                                  @Param("userId") String userId);}

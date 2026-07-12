@@ -23,6 +23,7 @@ public class GameAccount {
     private String username;
     private String passwordHash;
     private Long quotaBytes;
+    private Long usedBytes;
     private Integer status;
     private Date createTime;
     private Date updateTime;

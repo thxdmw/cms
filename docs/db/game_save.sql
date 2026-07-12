@@ -17,6 +17,7 @@ CREATE TABLE `game_account` (
     `username` varchar(64) NOT NULL,
     `password_hash` varchar(255) NOT NULL,
     `quota_bytes` bigint(20) NOT NULL DEFAULT 10737418240 COMMENT '用户逻辑配额，默认 10GB',
+    `used_bytes` bigint(20) NOT NULL DEFAULT 0 COMMENT '已预占的去重内容对象字节数',
     `status` tinyint(4) NOT NULL DEFAULT 1,
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

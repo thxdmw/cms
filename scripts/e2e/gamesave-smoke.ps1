@@ -102,6 +102,9 @@ try {
     } $tokenB
     Assert-That ($commitB.data.created -eq $true) "Second snapshot was not created"
 
+    $quota = Invoke-GameSaveJson GET "/api/game-save/v1/account/quota" $null $tokenB
+    $expectedUsedBytes = [int64]$objectA.Size + [int64]$objectB.Size
+    Assert-That ([int64]$quota.data.usedBytes -eq $expectedUsedBytes) "Quota usage does not match unique uploaded objects"
     $timeline = Invoke-GameSaveJson GET "/api/game-save/v1/games/$gameId/snapshots?limit=10" $null $tokenB
     Assert-That ($timeline.data.Count -eq 2) "Snapshot timeline count is incorrect"
     $manifest = Invoke-GameSaveJson GET "/api/game-save/v1/games/$gameId/snapshots/$($commitB.data.snapshotId)" $null $tokenB

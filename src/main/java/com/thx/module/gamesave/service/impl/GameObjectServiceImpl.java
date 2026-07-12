@@ -14,6 +14,7 @@ import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameObjectMapper;
 import com.thx.module.gamesave.model.GameObject;
 import com.thx.module.gamesave.service.GameObjectService;
+import com.thx.module.gamesave.service.GameQuotaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -61,6 +62,7 @@ public class GameObjectServiceImpl implements GameObjectService {
     private final GameObjectMapper gameObjectMapper;
     private final FileSystemService fileSystemService;
     private final FileObjectLookupService fileObjectLookupService;
+    private final GameQuotaService gameQuotaService;
 
     @Override
     public List<ObjectDescriptor> findMissing(List<ObjectDescriptor> objects, GameCallerContext caller) {
@@ -107,51 +109,61 @@ public class GameObjectServiceImpl implements GameObjectService {
             return existing;
         }
 
-        FileCallerContext fileCaller = fileCaller(caller);
-        FileInfoResult fileInfo = fileObjectLookupService.findActiveByHash(
-                SAVE_NAMESPACE, normalizedHash, expectedSize, fileCaller);
-        boolean uploadedNow = false;
-        if (fileInfo == null) {
-            // FileSystemService.upload 自己负责文件元数据事务和对象存储写失败补偿。
-            // 这里不再开启外层数据库事务，避免后续异常回滚 file_asset，却无法回滚已经写入 MinIO 的对象。
-            FileUploadResult uploadResult = fileSystemService.upload(
-                    file, SAVE_NAMESPACE, caller.getUserId(), fileCaller);
-            fileInfo = fileSystemService.get(uploadResult.getFileId(), fileCaller);
-            uploadedNow = true;
-        }
-
-        if (!normalizedHash.equals(normalizeHash(fileInfo.getSha256())) || expectedSize != fileInfo.getSize()) {
-            if (uploadedNow) {
-                cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
-            }
-            throw GameSaveException.badRequest("CHECKSUM_MISMATCH", "服务端文件校验结果与客户端对象描述不一致");
-        }
-
-        GameObject object = new GameObject()
-                .setObjectId(UUIDUtil.uuid())
-                .setUserId(caller.getUserId())
-                .setSha256(normalizedHash)
-                .setSize(expectedSize)
-                .setFileId(fileInfo.getFileId())
-                .setReferenceCount(0L)
-                .setStatus(ACTIVE);
+        // 首次建立用户内容对象前原子预占配额；并发重复上传的失败方会在 finally 中释放。
+        gameQuotaService.reserve(caller.getUserId(), expectedSize);
+        boolean reservationRetained = false;
         try {
-            gameObjectMapper.insert(object);
-            return object;
-        } catch (DuplicateKeyException duplicate) {
-            GameObject winner = findObject(caller.getUserId(), normalizedHash, expectedSize);
-            if (uploadedNow) {
-                cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
+            FileCallerContext fileCaller = fileCaller(caller);
+            FileInfoResult fileInfo = fileObjectLookupService.findActiveByHash(
+                    SAVE_NAMESPACE, normalizedHash, expectedSize, fileCaller);
+            boolean uploadedNow = false;
+            if (fileInfo == null) {
+                // FileSystemService.upload 自己负责文件元数据事务和对象存储写失败补偿。
+                // 这里不使用外层长事务，避免数据库回滚后 MinIO 对象无法同步回滚。
+                FileUploadResult uploadResult = fileSystemService.upload(
+                        file, SAVE_NAMESPACE, caller.getUserId(), fileCaller);
+                fileInfo = fileSystemService.get(uploadResult.getFileId(), fileCaller);
+                uploadedNow = true;
             }
-            if (winner != null) {
-                return winner;
+
+            if (!normalizedHash.equals(normalizeHash(fileInfo.getSha256())) || expectedSize != fileInfo.getSize()) {
+                if (uploadedNow) {
+                    cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
+                }
+                throw GameSaveException.badRequest("CHECKSUM_MISMATCH", "服务端文件校验结果与客户端对象描述不一致");
             }
-            throw duplicate;
-        } catch (RuntimeException exception) {
-            if (uploadedNow) {
-                cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
+
+            GameObject object = new GameObject()
+                    .setObjectId(UUIDUtil.uuid())
+                    .setUserId(caller.getUserId())
+                    .setSha256(normalizedHash)
+                    .setSize(expectedSize)
+                    .setFileId(fileInfo.getFileId())
+                    .setReferenceCount(0L)
+                    .setStatus(ACTIVE);
+            try {
+                gameObjectMapper.insert(object);
+                reservationRetained = true;
+                return object;
+            } catch (DuplicateKeyException duplicate) {
+                GameObject winner = findObject(caller.getUserId(), normalizedHash, expectedSize);
+                if (uploadedNow) {
+                    cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
+                }
+                if (winner != null) {
+                    return winner;
+                }
+                throw duplicate;
+            } catch (RuntimeException exception) {
+                if (uploadedNow) {
+                    cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
+                }
+                throw exception;
             }
-            throw exception;
+        } finally {
+            if (!reservationRetained) {
+                releaseQuotaReservation(caller.getUserId(), expectedSize);
+            }
         }
     }
 
@@ -176,11 +188,11 @@ public class GameObjectServiceImpl implements GameObjectService {
         if (object.getReferenceCount() != null && object.getReferenceCount() == 0L) {
             FileCallerContext fileCaller = fileCaller(caller);
             fileSystemService.delete(object.getFileId(), fileCaller);
-            gameObjectMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<GameObject>()
-                    .eq(GameObject::getObjectId, normalizedObjectId)
-                    .eq(GameObject::getUserId, caller.getUserId())
-                    .eq(GameObject::getReferenceCount, 0L)
-                    .set(GameObject::getStatus, "DELETED"));
+            int deleted = gameObjectMapper.markDeletedIfUnreferenced(normalizedObjectId, caller.getUserId());
+            if (deleted != 1) {
+                throw GameSaveException.conflict("OBJECT_STATE_CHANGED", "内容对象状态已变化，请重新加载快照时间线");
+            }
+            gameQuotaService.release(caller.getUserId(), object.getSize());
         }
     }
     @Override
@@ -198,6 +210,15 @@ public class GameObjectServiceImpl implements GameObjectService {
      * 清理本次请求刚上传、但未成功建立 game_object 关系的文件资产。
      * 清理异常只记录日志，不能覆盖真正的业务/数据库异常；文件模块自己的清理任务负责后续重试。
      */
+    /** 配额补偿失败只记录错误，不能覆盖上传链路的原始异常；后续由配额校准任务修复。 */
+    private void releaseQuotaReservation(String userId, long bytes) {
+        try {
+            gameQuotaService.release(userId, bytes);
+        } catch (RuntimeException quotaException) {
+            log.error("GameSave 配额预占释放失败，等待配额校准任务修复: userId={}, bytes={}",
+                    userId, bytes, quotaException);
+        }
+    }
     private void cleanupUploadedFile(String fileId, FileCallerContext caller) {
         try {
             fileSystemService.delete(fileId, caller);

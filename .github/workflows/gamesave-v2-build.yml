@@ -7,7 +7,10 @@ on:
       - 'src/main/java/com/thx/module/file/**'
       - 'src/main/java/com/thx/common/config/WebMvcConfig.java'
       - 'src/test/java/com/thx/module/gamesave/**'
-      - 'docs/db/game_save.sql'
+      - 'docs/db/game_save*.sql'
+      - 'docs/gamesave-e2e.md'
+      - 'docker-compose.gamesave-e2e.yml'
+      - 'scripts/e2e/**'
       - 'docs/game-save-v2*.md'
       - 'pom.xml'
       - '.github/workflows/gamesave-v2-build.yml'
@@ -41,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          mvn -B -Dtest=GamePasswordUtilTest,GameTokenUtilTest,GameObjectServiceImplTest,GameSnapshotServiceImplTest test 2>&1 | tee maven-gamesave-test.log
+          mvn -B -Dtest=GamePasswordUtilTest,GameTokenUtilTest,GameObjectServiceImplTest,GameSnapshotServiceImplTest,GameDeviceServiceImplTest,GameQuotaServiceImplTest test 2>&1 | tee maven-gamesave-test.log
 
       - name: 上传 Maven 构建日志
         if: always()

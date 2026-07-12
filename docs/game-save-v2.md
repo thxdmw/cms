@@ -181,3 +181,10 @@ created = false
 内容对象引用降为零时，`game_object` 转为 `DELETED`，对应 FileAsset 进入文件模块既有的逻辑删除、宽限期和失败清理重试流程。仍被其他快照引用的对象不会删除。
 
 本地端到端环境见 `docs/gamesave-e2e.md`，脚本覆盖注册、设备登录、对象上传、两次快照提交、旧 HEAD 冲突、时间线、Manifest 和下载内容 SHA-256 校验。
+## 用户存储配额
+
+`game_account.used_bytes` 记录用户当前 ACTIVE 去重内容对象的物理字节数。新对象上传前通过单条条件 UPDATE 原子预占，只有同时满足账户启用、字节数合法且剩余配额充足时才成功；相同用户的相同 `sha256 + size` 对象去重命中不会重复计费。
+
+上传校验、对象关系落库或并发唯一键竞争失败时释放本次预占。删除历史快照导致某个内容对象最后一个引用消失时，服务端先将对象按零引用条件标记删除，再释放对应容量。`GET /api/game-save/v1/account/quota` 返回配额、已用容量和剩余容量，且与其他 GameSave 业务接口一样受设备 Token 认证保护。
+
+新环境由 `docs/db/game_save.sql` 创建 `used_bytes`；已部署环境执行 `docs/db/game_save_quota_migration.sql`，并按现有 ACTIVE 内容对象重建已用容量。
