@@ -8,9 +8,9 @@ services:
     ports:
       - "13306:3306"
     volumes:
-      - ./docs/db/cms.sql:/docker-entrypoint-initdb.d/01-cms.sql:ro
-      - ./docs/db/file_system.sql:/docker-entrypoint-initdb.d/02-file-system.sql:ro
-      - ./docs/db/game_save.sql:/docker-entrypoint-initdb.d/03-game-save.sql:ro
+      - ./docs/modules/platform/cms.sql:/docker-entrypoint-initdb.d/01-cms.sql:ro
+      - ./docs/modules/file/schema.sql:/docker-entrypoint-initdb.d/02-file-system.sql:ro
+      - ./docs/modules/gamesave/schema.sql:/docker-entrypoint-initdb.d/03-game-save.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -pgamesave-e2e-root --silent"]
       interval: 5s

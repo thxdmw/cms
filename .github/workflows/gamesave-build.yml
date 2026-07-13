@@ -1,4 +1,4 @@
-name: GameSave V2 后端构建
+name: GameSave 后端构建
 
 on:
   pull_request:
@@ -7,13 +7,13 @@ on:
       - 'src/main/java/com/thx/module/file/**'
       - 'src/main/java/com/thx/common/config/WebMvcConfig.java'
       - 'src/test/java/com/thx/module/gamesave/**'
-      - 'docs/db/game_save*.sql'
-      - 'docs/gamesave-e2e.md'
+      - 'docs/modules/gamesave/**'
+      - 'docs/modules/gamesave/README.md'
       - 'docker-compose.gamesave-e2e.yml'
       - 'scripts/e2e/**'
-      - 'docs/game-save-v2*.md'
+      - 'docs/modules/gamesave/**'
       - 'pom.xml'
-      - '.github/workflows/gamesave-v2-build.yml'
+      - '.github/workflows/gamesave-build.yml'
   workflow_dispatch:
 
 permissions:
@@ -50,7 +50,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: gamesave-v2-maven-logs
+          name: gamesave-maven-logs
           path: |
             maven-package.log
             maven-gamesave-test.log

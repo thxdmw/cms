@@ -63,6 +63,8 @@ public class ShiroService {
         filterChainDefinitionMap.put("/tools/api/**", "anon");
         // 文件系统 /api/v1/files/** 不走 Shiro 会话认证，改由 FileAuthInterceptor 做 API Key 认证
         filterChainDefinitionMap.put("/api/v1/files/**", "anon");
+        // GameSave 使用独立的设备 Token；必须绕过 Shiro 会话过滤器，交由 GameDeviceTokenInterceptor 返回 JSON 认证结果。
+        filterChainDefinitionMap.put("/api/game-save/v1/**", "anon");
         filterChainDefinitionMap.put(fileUploadProperties.getAccessPathPattern(), "anon");
         filterChainDefinitionMap.put(staticizeProperties.getAccessPathPattern(), "anon");
 

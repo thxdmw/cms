@@ -89,7 +89,7 @@ com.thx.module.file
 | `storage_cleanup_task` | 物理删除失败后的补偿重试任务 |
 | `file_operation_log` | 操作审计日志 |
 
-建表和种子数据见 [docs/db/file_system.sql](../db/file_system.sql)。
+建表和种子数据见 [schema.sql](schema.sql)。
 
 ## 接入方式（新增一个 App）
 

@@ -35,7 +35,7 @@
 
 1. 将本项目源码导入本地开发工具(如 IntelliJ IDEA )，本地开发工具需要安装 [lombok](https://projectlombok.org/) 插件
 2. 安装`MySQL`数据库：版本最低支持 5.7，新建 database `CREATE DATABASE cms;`
-3. 初始化数据库：找到项目数据库文件 `docs/db/cms.sql`（文件系统相关表另见 `docs/db/file_system.sql`），执行导入
+3. 初始化数据库：找到项目数据库文件 `docs/modules/platform/cms.sql`（文件系统相关表另见 `docs/modules/file/schema.sql`），执行导入
 4. 安装`Redis`：最低版本支持 3.2
 5. 安装`MinIO`（文件上传/存储依赖）：本地开发默认指向 `http://localhost:9000`，也可以通过环境变量 `MINIO_ENDPOINT`/`MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` 指向已有实例
 6. 修改(`resources/application-dev.yml`)配置文件
