@@ -13,7 +13,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  */
 @EnableTransactionManagement
 @Configuration
-@MapperScan(basePackages = {"com.thx.module.admin.mapper", "com.thx.module.tools.mapper", "com.thx.module.file.mapper"})
+@MapperScan(basePackages = {"com.thx.module.admin.mapper", "com.thx.module.tools.mapper", "com.thx.module.file.mapper", "com.thx.module.gamesave.mapper"})
 public class MybatisPlusConfig {
 
     /**
