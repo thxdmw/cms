@@ -26,7 +26,7 @@ public class PaymentEventScheduler {
     private final PaymentEventDispatcher dispatcher;
     private final PaymentProperties paymentProperties;
 
-    @Scheduled(fixedDelay = 60 * 1000, initialDelay = 30 * 1000)
+    //@Scheduled(fixedDelay = 60 * 1000, initialDelay = 30 * 1000)
     public void redeliver() {
         PaymentProperties.Event config = paymentProperties.getEvent();
         if (!config.isEnabled()) {

@@ -29,7 +29,7 @@ public class PaymentReconcileScheduler {
     private final PaymentSyncService paymentSyncService;
     private final PaymentProperties paymentProperties;
 
-    @Scheduled(fixedDelay = 5 * 60 * 1000, initialDelay = 60 * 1000)
+    //@Scheduled(fixedDelay = 5 * 60 * 1000, initialDelay = 60 * 1000)
     public void reconcile() {
         PaymentProperties.Reconcile config = paymentProperties.getReconcile();
         if (!config.isEnabled()) {
