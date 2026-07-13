@@ -1,0 +1,29 @@
+package com.thx.module.gamesave.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.thx.module.gamesave.model.GameObject;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
+
+/** GameSave 内容对象数据访问层。 */
+@Mapper
+public interface GameObjectMapper extends BaseMapper<GameObject> {
+
+    /** 仅允许给当前用户仍处于 ACTIVE 的对象增加快照引用计数。 */
+    @Update("UPDATE game_object SET reference_count = reference_count + 1 "
+            + "WHERE object_id = #{objectId} AND user_id = #{userId} AND status = 'ACTIVE'")
+    int incrementReference(@Param("objectId") String objectId, @Param("userId") String userId);
+
+    /** 只允许释放仍有快照引用的 ACTIVE 对象，避免引用计数变成负数。 */
+    @Update("UPDATE game_object SET reference_count = reference_count - 1 "
+            + "WHERE object_id = #{objectId} AND user_id = #{userId} "
+            + "AND status = 'ACTIVE' AND reference_count > 0")
+    int decrementReference(@Param("objectId") String objectId, @Param("userId") String userId);
+
+    /** 仅将零引用的 ACTIVE 对象标记为删除，确保容量只释放一次。 */
+    @Update("UPDATE game_object SET status = 'DELETED' "
+            + "WHERE object_id = #{objectId} AND user_id = #{userId} "
+            + "AND status = 'ACTIVE' AND reference_count = 0")
+    int markDeletedIfUnreferenced(@Param("objectId") String objectId,
+                                  @Param("userId") String userId);}

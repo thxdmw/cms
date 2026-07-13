@@ -1,0 +1,58 @@
+name: GameSave V2 后端构建
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/java/com/thx/module/gamesave/**'
+      - 'src/main/java/com/thx/module/file/**'
+      - 'src/main/java/com/thx/common/config/WebMvcConfig.java'
+      - 'src/test/java/com/thx/module/gamesave/**'
+      - 'docs/db/game_save*.sql'
+      - 'docs/gamesave-e2e.md'
+      - 'docker-compose.gamesave-e2e.yml'
+      - 'scripts/e2e/**'
+      - 'docs/game-save-v2*.md'
+      - 'pom.xml'
+      - '.github/workflows/gamesave-v2-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: JDK 8 Maven 构建
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 配置 JDK 8
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'maven'
+
+      - name: 编译并打包
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B -DskipTests package 2>&1 | tee maven-package.log
+
+      - name: 执行 GameSave 单元测试
+        shell: bash
+        run: |
+          set -o pipefail
+          mvn -B -Dtest=GamePasswordUtilTest,GameTokenUtilTest,GameObjectServiceImplTest,GameSnapshotServiceImplTest,GameDeviceServiceImplTest,GameQuotaServiceImplTest,GameRetentionServiceImplTest test 2>&1 | tee maven-gamesave-test.log
+
+      - name: 上传 Maven 构建日志
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: gamesave-v2-maven-logs
+          path: |
+            maven-package.log
+            maven-gamesave-test.log
+          if-no-files-found: warn
+          retention-days: 7

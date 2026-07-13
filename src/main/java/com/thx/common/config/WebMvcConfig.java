@@ -8,6 +8,7 @@ import com.thx.common.interceptor.AgentApiAuthInterceptor;
 import com.thx.common.interceptor.CommonDataInterceptor;
 import com.thx.common.interceptor.RequestLoggingInterceptor;
 import com.thx.module.file.interceptor.FileAuthInterceptor;
+import com.thx.module.gamesave.interceptor.GameDeviceTokenInterceptor;
 import lombok.AllArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
@@ -22,12 +23,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import java.io.File;
 import java.util.List;
 
-/**
- * Created with IntelliJ IDEA.
- *
- * @author tanghaixin
- * @date 2020/4/18 11:58 上午
- */
+/** 项目统一 Spring MVC 配置：静态资源、拦截器、跨域和消息转换器均在此注册。 */
 @Configuration
 @AllArgsConstructor
 @EnableConfigurationProperties({FileUploadProperties.class, StaticizeProperties.class})
@@ -39,34 +35,25 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final RequestLoggingInterceptor requestLoggingInterceptor;
     private final AgentApiAuthInterceptor agentApiAuthInterceptor;
     private final FileAuthInterceptor fileAuthInterceptor;
-    //跨域配置
+    private final GameDeviceTokenInterceptor gameDeviceTokenInterceptor;
     private final CorsProperties corsProperties;
 
-    /**
-     * 配置本地文件上传的虚拟路径和静态化的文件生成路径
-     * 备注：这是一种图片上传访问图片的方法，实际上也可以使用nginx反向代理访问图片
-     *
-     * @param registry
-     */
+    /** 配置本地上传目录、静态化目录和两个 Vue SPA 的静态资源缓存策略。 */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 文件上传
         String uploadFolder = fileUploadProperties.getUploadFolder();
         uploadFolder = StrUtil.appendIfMissing(uploadFolder, File.separator);
         registry.addResourceHandler(fileUploadProperties.getAccessPathPattern())
                 .addResourceLocations("file:" + uploadFolder);
-        // 静态化
+
         String staticFolder = staticizeProperties.getFolder();
         staticFolder = StrUtil.appendIfMissing(staticFolder, File.separator);
         registry.addResourceHandler(staticizeProperties.getAccessPathPattern())
                 .addResourceLocations("file:" + staticFolder);
-        // 博客 Vue SPA 静态资源单独关闭强缓存：开发迭代期间文件改动频繁，
-        // 默认的 Last-Modified 协商缓存在部分浏览器上仍可能命中启发式缓存而不发出校验请求，
-        // 这里显式要求每次都带条件请求校验，避免刷新后还是拿到旧文件
+
         registry.addResourceHandler("/blog-app/**")
                 .addResourceLocations("classpath:/static/blog-app/")
                 .setCacheControl(CacheControl.noCache());
-        // 后台管理 Vue SPA 静态资源，同样关闭强缓存，原因同上
         registry.addResourceHandler("/admin-app/**")
                 .addResourceLocations("classpath:/static/admin-app/")
                 .setCacheControl(CacheControl.noCache());
@@ -76,12 +63,21 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(commonDataInterceptor).addPathPatterns("/**");
         registry.addInterceptor(requestLoggingInterceptor).addPathPatterns("/**");
-        // Agent API 认证拦截器（只对 /agent/api/** 生效）
+
+        // Agent API 独立 API Key 认证。
         registry.addInterceptor(agentApiAuthInterceptor)
                 .addPathPatterns("/agent/api/**");
-        // 文件系统 API Key 认证拦截器（只对 /api/v1/files/** 生效）
+
+        // 通用文件系统 App API Key 认证。
         registry.addInterceptor(fileAuthInterceptor)
                 .addPathPatterns("/api/v1/files/**");
+
+        // GameSave 使用用户级设备 Token；注册和登录是唯二免设备 Token 的 GameSave API。
+        registry.addInterceptor(gameDeviceTokenInterceptor)
+                .addPathPatterns("/api/game-save/v1/**")
+                .excludePathPatterns(
+                        "/api/game-save/v1/auth/register",
+                        "/api/game-save/v1/auth/login");
     }
 
     @Override
