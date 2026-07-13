@@ -7,6 +7,7 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 - `schema.sql`：首次部署的完整 GameSave 业务表与 `module.file` 策略初始化脚本。
 - `migrations/001-user-quota.sql`：已部署环境增加用户容量配额时执行。
 - `migrations/002-snapshot-retention.sql`：已部署环境增加快照保留策略时执行。
+- `migrations/003-game-name-unique.sql`：已部署环境增加同账户游戏名称唯一约束时执行。
 
 ## 首次部署
 
@@ -30,7 +31,7 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 | 功能 | 接口 |
 | --- | --- |
 | 注册、登录 | `POST /auth/register`、`POST /auth/login` |
-| 游戏库 | `GET/POST /games` |
+| 游戏库 | `GET/POST /games`、`DELETE /games/{gameId}` |
 | 缺失对象检查、上传、下载地址 | `POST /objects/check`、`POST /objects`、`GET /objects/{objectId}/download-url` |
 | 提交、读取和删除快照 | `POST /games/{gameId}/snapshots`、`GET /games/{gameId}/snapshots`、`GET /games/{gameId}/snapshots/{snapshotId}`、`DELETE /games/{gameId}/snapshots/{snapshotId}` |
 | 同步 HEAD | `GET /games/{gameId}/head` |

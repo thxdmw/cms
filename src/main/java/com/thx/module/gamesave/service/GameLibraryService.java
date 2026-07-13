@@ -12,4 +12,7 @@ public interface GameLibraryService {
     List<GameLibraryResult> list(GameCallerContext caller);
 
     GameLibraryResult create(GameCreateRequest request, GameCallerContext caller);
+
+    /** 删除游戏、其全部云端快照，并释放不再被任何快照引用的内容对象。 */
+    void delete(String gameId, GameCallerContext caller);
 }

@@ -7,28 +7,30 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.util.List;
-
-/** 用户逻辑游戏数据访问层。 */
+/** GameSave 游戏库数据访问层。 */
 @Mapper
 public interface GameLibraryMapper extends BaseMapper<GameLibrary> {
 
-    /** 查询当前用户拥有的启用游戏及其保留策略。 */
-    @Select("SELECT * FROM game_library "
-            + "WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1 LIMIT 1")
-    GameLibrary selectOwnedForRetention(@Param("gameId") String gameId,
-                                        @Param("userId") String userId);
+    @Select("SELECT * FROM game_library WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1 LIMIT 1")
+    GameLibrary selectActiveOwned(@Param("gameId") String gameId, @Param("userId") String userId);
 
-    /** 查询已启用自动保留清理的游戏，供后台任务分批处理。 */
+    /** 查询指定用户仍处于有效状态的游戏，用于快照保留策略。 */
+    @Select("SELECT * FROM game_library WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1 LIMIT 1")
+    GameLibrary selectOwnedForRetention(@Param("gameId") String gameId, @Param("userId") String userId);
+
+    @Select("SELECT * FROM game_library WHERE user_id = #{userId} AND LOWER(name) = LOWER(#{name}) AND status = 1 LIMIT 1")
+    GameLibrary selectActiveByName(@Param("userId") String userId, @Param("name") String name);
+
     @Select("SELECT * FROM game_library WHERE status = 1 AND retention_enabled = 1")
-    List<GameLibrary> selectRetentionEnabledGames();
+    java.util.List<GameLibrary> selectRetentionEnabledGames();
 
-    /** 原子更新当前用户指定游戏的保留策略。 */
-    @Update("UPDATE game_library SET retention_enabled = #{enabled}, "
-            + "retention_count = #{retentionCount}, retention_days = #{retentionDays} "
-            + "WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1")
+    @Update("UPDATE game_library SET retention_enabled = #{enabled}, retention_count = #{count}, retention_days = #{days} WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1")
     int updateRetentionPolicy(@Param("gameId") String gameId,
                               @Param("userId") String userId,
                               @Param("enabled") int enabled,
-                              @Param("retentionCount") int retentionCount,
-                              @Param("retentionDays") int retentionDays);}
+                              @Param("count") Integer count,
+                              @Param("days") Integer days);
+
+    @Update("UPDATE game_library SET status = 0 WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1")
+    int markDeleted(@Param("gameId") String gameId, @Param("userId") String userId);
+}

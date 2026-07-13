@@ -60,6 +60,7 @@ CREATE TABLE `game_library` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_game_library_game_id` (`game_id`),
     UNIQUE KEY `uk_game_library_user_key` (`user_id`, `game_key`),
+    UNIQUE KEY `uk_game_library_user_name` (`user_id`, `name`),
     KEY `idx_game_library_user` (`user_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户逻辑游戏库';
 
