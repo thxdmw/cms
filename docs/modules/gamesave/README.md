@@ -5,9 +5,6 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 ## 目录说明
 
 - `schema.sql`：首次部署的完整 GameSave 业务表与 `module.file` 策略初始化脚本。
-- `migrations/001-user-quota.sql`：已部署环境增加用户容量配额时执行。
-- `migrations/002-snapshot-retention.sql`：已部署环境增加快照保留策略时执行。
-- `migrations/003-game-name-unique.sql`：已部署环境增加同账户游戏名称唯一约束时执行。
 
 ## 首次部署
 
@@ -38,13 +35,3 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 | 配额 | `GET /account/quota` |
 | 设备管理 | `GET /devices`、`DELETE /devices/{deviceId}` |
 | 快照保留 | `GET/PUT /games/{gameId}/retention`、`POST /games/{gameId}/retention/cleanup` |
-
-## 本地端到端验证
-
-```powershell
-docker compose -f docker-compose.gamesave-e2e.yml up --build -d
-powershell -ExecutionPolicy Bypass -File scripts/e2e/gamesave-smoke.ps1
-docker compose -f docker-compose.gamesave-e2e.yml down -v
-```
-
-端到端环境使用独立端口：CMS `18080`、MySQL `13306`、Redis `16379`、MinIO API `19000`、MinIO Console `19001`。它仅用于本地验证，Compose 中的密码不能用于生产。
