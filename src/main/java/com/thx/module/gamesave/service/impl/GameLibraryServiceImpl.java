@@ -89,8 +89,8 @@ public class GameLibraryServiceImpl implements GameLibraryService {
                         .setProviderGameId(providerGameId)
                         .setCoverFileId(null)
                         .setRetentionEnabled(0)
-                        .setRetentionCount(null)
-                        .setRetentionDays(null)
+                        .setRetentionCount(50)
+                        .setRetentionDays(0)
                         .setStatus(1);
                 return GameLibraryResult.from(deletedGame);
             }

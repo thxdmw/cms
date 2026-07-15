@@ -59,6 +59,8 @@ class GameLibraryServiceImplTest {
 
         assertEquals("old-game", service.create(request, caller).getGameId());
         assertEquals(Integer.valueOf(1), deletedGame.getStatus());
+        assertEquals(Integer.valueOf(50), deletedGame.getRetentionCount());
+        assertEquals(Integer.valueOf(0), deletedGame.getRetentionDays());
         verify(gameLibraryMapper, org.mockito.Mockito.never()).insert(any(GameLibrary.class));
     }
 
