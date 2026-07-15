@@ -17,7 +17,9 @@ public class GamePasswordUtil {
 
     private static final String ALGORITHM = "PBKDF2WithHmacSHA256";
     private static final String PREFIX = "pbkdf2-sha256";
-    private static final int DEFAULT_ITERATIONS = 120000;
+    // OWASP 2023 对 PBKDF2-HMAC-SHA256 的建议下限；持久化格式记录了实际迭代次数，
+    // 历史哈希仍按各自迭代次数校验，因此提升该值不影响既有账号登录。
+    private static final int DEFAULT_ITERATIONS = 600000;
     private static final int SALT_BYTES = 16;
     private static final int KEY_BITS = 256;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
