@@ -56,6 +56,7 @@ public class GameLibraryServiceImpl implements GameLibraryService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public GameLibraryResult create(GameCreateRequest request, GameCallerContext caller) {
         validateRequest(request);
         String name = request.getName().trim();
@@ -76,6 +77,28 @@ public class GameLibraryServiceImpl implements GameLibraryService {
         GameLibrary existing = findByGameKey(caller.getUserId(), gameKey);
         if (existing != null) {
             return GameLibraryResult.from(existing);
+        }
+
+        GameLibrary deletedGame = gameLibraryMapper.selectOwnedByNameIncludingDeleted(caller.getUserId(), name);
+        if (deletedGame != null && !Integer.valueOf(1).equals(deletedGame.getStatus())) {
+            int reactivated = gameLibraryMapper.reactivateDeletedById(
+                    deletedGame.getId(), caller.getUserId(), gameKey, provider, providerGameId);
+            if (reactivated == 1) {
+                deletedGame.setGameKey(gameKey)
+                        .setProvider(provider)
+                        .setProviderGameId(providerGameId)
+                        .setCoverFileId(null)
+                        .setRetentionEnabled(0)
+                        .setRetentionCount(null)
+                        .setRetentionDays(null)
+                        .setStatus(1);
+                return GameLibraryResult.from(deletedGame);
+            }
+            GameLibrary concurrentGame = gameLibraryMapper.selectActiveByName(caller.getUserId(), name);
+            if (concurrentGame != null) {
+                return GameLibraryResult.from(concurrentGame);
+            }
+            throw GameSaveException.conflict("GAME_STATE_CHANGED", "游戏状态已变化，请重新添加");
         }
 
         GameLibrary game = new GameLibrary()

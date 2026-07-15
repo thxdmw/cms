@@ -48,6 +48,20 @@ class GameLibraryServiceImplTest {
         assertEquals("GAME_NAME_EXISTS", exception.getCode());
     }
 
+    @Test void createShouldReactivateDeletedGameWithSameName() {
+        GameCreateRequest request = new GameCreateRequest(); request.setName("Local Game"); request.setProvider("CUSTOM");
+        GameLibrary deletedGame = new GameLibrary().setId(8L).setGameId("old-game").setUserId("user-1")
+                .setName("Local Game").setStatus(0);
+        when(gameLibraryMapper.selectOne(any())).thenReturn(null);
+        when(gameLibraryMapper.selectOwnedByNameIncludingDeleted("user-1", "Local Game")).thenReturn(deletedGame);
+        when(gameLibraryMapper.reactivateDeletedById(org.mockito.ArgumentMatchers.eq(8L), org.mockito.ArgumentMatchers.eq("user-1"), org.mockito.ArgumentMatchers.startsWith("CUSTOM:"), org.mockito.ArgumentMatchers.eq("CUSTOM"), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(1);
+
+        assertEquals("old-game", service.create(request, caller).getGameId());
+        assertEquals(Integer.valueOf(1), deletedGame.getStatus());
+        verify(gameLibraryMapper, org.mockito.Mockito.never()).insert(any(GameLibrary.class));
+    }
+
     @Test void deleteShouldReleaseObjectsAndMarkCloudGameDeleted() {
         GameLibrary game = new GameLibrary().setGameId("game-1").setUserId("user-1").setStatus(1);
         GameSnapshot snapshot = new GameSnapshot().setSnapshotId("snapshot-1").setStatus("ACTIVE");

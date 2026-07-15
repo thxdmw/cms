@@ -21,6 +21,9 @@ public interface GameLibraryMapper extends BaseMapper<GameLibrary> {
     @Select("SELECT * FROM game_library WHERE user_id = #{userId} AND LOWER(name) = LOWER(#{name}) AND status = 1 LIMIT 1")
     GameLibrary selectActiveByName(@Param("userId") String userId, @Param("name") String name);
 
+    /** 查询同名游戏，包含已删除记录，用于重新添加时复用唯一名称记录。 */
+    @Select("SELECT * FROM game_library WHERE user_id = #{userId} AND LOWER(name) = LOWER(#{name}) ORDER BY status DESC, id DESC LIMIT 1")
+    GameLibrary selectOwnedByNameIncludingDeleted(@Param("userId") String userId, @Param("name") String name);
     @Select("SELECT * FROM game_library WHERE status = 1 AND retention_enabled = 1")
     java.util.List<GameLibrary> selectRetentionEnabledGames();
 
@@ -33,4 +36,13 @@ public interface GameLibraryMapper extends BaseMapper<GameLibrary> {
 
     @Update("UPDATE game_library SET status = 0 WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1")
     int markDeleted(@Param("gameId") String gameId, @Param("userId") String userId);
+    /** 重新启用已删除的同名游戏，避免唯一索引阻止用户删除后再次添加。 */
+    @Update("UPDATE game_library SET game_key = #{gameKey}, provider = #{provider}, provider_game_id = #{providerGameId}, "
+            + "cover_file_id = NULL, retention_enabled = 0, retention_count = NULL, retention_days = NULL, status = 1 "
+            + "WHERE id = #{id} AND user_id = #{userId} AND status = 0")
+    int reactivateDeletedById(@Param("id") Long id,
+                              @Param("userId") String userId,
+                              @Param("gameKey") String gameKey,
+                              @Param("provider") String provider,
+                              @Param("providerGameId") String providerGameId);
 }
