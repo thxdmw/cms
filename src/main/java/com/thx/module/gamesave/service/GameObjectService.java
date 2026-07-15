@@ -6,6 +6,7 @@ import com.thx.module.gamesave.model.GameObject;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 /** GameSave 内容对象门面。 */
 public interface GameObjectService {
@@ -21,8 +22,11 @@ public interface GameObjectService {
     /** 上传或复用内容对象；服务端必须重新校验实际 SHA-256 与大小。 */
     GameObject put(MultipartFile file, String expectedSha256, long expectedSize, GameCallerContext caller);
 
-    /** 快照提交时解析当前用户已有内容对象；不存在时拒绝提交 Manifest。 */
-    GameObject requireOwnedObject(String sha256, long size, GameCallerContext caller);
+    /**
+     * 快照提交时批量解析当前用户已有内容对象；任意一个不存在都会拒绝整个 Manifest。
+     * 返回值以 normalizeHash(sha256) + ":" + size 为 key，供调用方按同样规则回查。
+     */
+    Map<String, GameObject> requireOwnedObjects(List<ObjectDescriptor> descriptors, GameCallerContext caller);
     /** 释放历史快照对对象的引用；最后一个引用消失时进入文件模块的逻辑删除流程。 */
     void releaseSnapshotReference(String objectId, GameCallerContext caller);
 }

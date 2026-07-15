@@ -3,6 +3,7 @@ package com.thx.module.gamesave.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.thx.common.util.UUIDUtil;
 import com.thx.module.gamesave.context.GameCallerContext;
+import com.thx.module.gamesave.dto.ObjectDescriptor;
 import com.thx.module.gamesave.dto.SnapshotCommitRequest;
 import com.thx.module.gamesave.dto.SnapshotCommitResult;
 import com.thx.module.gamesave.dto.SnapshotFileDescriptor;
@@ -107,6 +108,8 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
     private static final String ACTIVE = "ACTIVE";
     private static final Set<String> ALLOWED_TRIGGER_TYPES = new HashSet<>(
             Arrays.asList("MANUAL", "GAME_EXIT", "BEFORE_RESTORE", "IMPORT"));
+    // 单个快照允许提交的文件数量上限，避免无界 Manifest 触发超大批量查询或拖垮数据库。
+    private static final int MAX_MANIFEST_FILES = 5000;
 
     private final GameLibraryMapper gameLibraryMapper;
     private final GameSnapshotMapper gameSnapshotMapper;
@@ -237,29 +240,46 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
                 true);
     }
 
-    /** 将客户端 Manifest 解析为当前用户实际拥有的内容对象，并完成路径规范化与判重。 */
+    /**
+     * 将客户端 Manifest 解析为当前用户实际拥有的内容对象，并完成路径规范化与判重。
+     * 第一遍只做路径校验、不访问数据库；第二遍对全部文件引用的内容对象发起一次批量归属校验，
+     * 避免文件数量线性增长时逐文件触发数据库往返。
+     */
     private List<ResolvedSnapshotFile> resolveManifest(List<SnapshotFileDescriptor> files,
                                                        GameCallerContext caller) {
         if (files == null) {
             throw GameSaveException.badRequest("INVALID_MANIFEST", "快照文件清单不能为空");
         }
 
-        Map<String, ResolvedSnapshotFile> uniquePaths = new LinkedHashMap<>();
+        Map<String, SnapshotFileDescriptor> uniqueFiles = new LinkedHashMap<>();
+        Map<String, String> pathsByKey = new LinkedHashMap<>();
+        List<ObjectDescriptor> descriptors = new ArrayList<>(files.size());
         for (SnapshotFileDescriptor descriptor : files) {
             if (descriptor == null) {
                 throw GameSaveException.badRequest("INVALID_MANIFEST_FILE", "快照文件描述不能为空");
             }
             String relativePath = normalizeRelativePath(descriptor.getPath());
             String pathKey = relativePath.toLowerCase(Locale.ROOT);
-            if (uniquePaths.containsKey(pathKey)) {
+            if (uniqueFiles.containsKey(pathKey)) {
                 throw GameSaveException.badRequest("DUPLICATE_PATH", "快照中存在重复路径: " + relativePath);
             }
-
-            GameObject object = gameObjectService.requireOwnedObject(
-                    descriptor.getSha256(), descriptor.getSize(), caller);
-            uniquePaths.put(pathKey, new ResolvedSnapshotFile(relativePath, object));
+            uniqueFiles.put(pathKey, descriptor);
+            pathsByKey.put(pathKey, relativePath);
+            descriptors.add(new ObjectDescriptor(descriptor.getSha256(), descriptor.getSize()));
         }
-        return new ArrayList<>(uniquePaths.values());
+
+        Map<String, GameObject> ownedObjects = gameObjectService.requireOwnedObjects(descriptors, caller);
+        List<ResolvedSnapshotFile> resolved = new ArrayList<>(uniqueFiles.size());
+        for (Map.Entry<String, SnapshotFileDescriptor> entry : uniqueFiles.entrySet()) {
+            SnapshotFileDescriptor descriptor = entry.getValue();
+            String objectKey = normalizeHash(descriptor.getSha256()) + ":" + descriptor.getSize();
+            resolved.add(new ResolvedSnapshotFile(pathsByKey.get(entry.getKey()), ownedObjects.get(objectKey)));
+        }
+        return resolved;
+    }
+
+    private String normalizeHash(String sha256) {
+        return sha256 == null ? "" : sha256.trim().toLowerCase(Locale.ROOT);
     }
 
     /** changedFileCount 同时统计新增、内容修改和路径删除。 */
@@ -352,6 +372,10 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
         }
         if (request.getDescription() != null && request.getDescription().trim().length() > 500) {
             throw GameSaveException.badRequest("DESCRIPTION_TOO_LONG", "快照描述长度不能超过 500");
+        }
+        if (request.getFiles() != null && request.getFiles().size() > MAX_MANIFEST_FILES) {
+            throw GameSaveException.badRequest(
+                    "TOO_MANY_FILES", "单个快照的文件数量不能超过 " + MAX_MANIFEST_FILES);
         }
     }
 

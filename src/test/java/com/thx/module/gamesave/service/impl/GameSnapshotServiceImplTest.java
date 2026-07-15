@@ -109,7 +109,8 @@ class GameSnapshotServiceImplTest {
 
         when(gameLibraryMapper.selectOne(any())).thenReturn(game);
         when(gameSyncHeadMapper.selectOne(any())).thenReturn(head);
-        when(gameObjectService.requireOwnedObject(eq(hash), eq(size), eq(caller))).thenReturn(object);
+        when(gameObjectService.requireOwnedObjects(any(), eq(caller)))
+                .thenReturn(Collections.singletonMap(hash + ":" + size, object));
         when(gameSnapshotFileMapper.selectList(any())).thenReturn(Collections.singletonList(parentFile));
 
         SnapshotCommitResult result = service.commit("game-1", request, caller);

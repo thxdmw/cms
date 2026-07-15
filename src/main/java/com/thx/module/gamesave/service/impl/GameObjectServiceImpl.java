@@ -58,6 +58,8 @@ public class GameObjectServiceImpl implements GameObjectService {
     private static final Pattern SHA256_PATTERN = Pattern.compile("^[a-f0-9]{64}$");
     private static final Set<String> FILE_SCOPES = new LinkedHashSet<>(
             Arrays.asList("UPLOAD", "READ", "DELETE", "LIST", "PRESIGN"));
+    // 单次请求允许校验/解析的内容对象上限，避免无界列表触发超大批量查询或拖垮数据库。
+    private static final int MAX_CHECK_OBJECTS = 5000;
 
     private final GameObjectMapper gameObjectMapper;
     private final FileSystemService fileSystemService;
@@ -70,6 +72,10 @@ public class GameObjectServiceImpl implements GameObjectService {
         if (objects == null) {
             return missing;
         }
+        if (objects.size() > MAX_CHECK_OBJECTS) {
+            throw GameSaveException.badRequest(
+                    "TOO_MANY_OBJECTS", "单次校验的内容对象数量不能超过 " + MAX_CHECK_OBJECTS);
+        }
 
         // 一个 Manifest 中多个路径可能引用相同内容，检查接口只返回唯一内容对象。
         Map<String, ObjectDescriptor> uniqueObjects = new LinkedHashMap<>();
@@ -81,9 +87,18 @@ public class GameObjectServiceImpl implements GameObjectService {
             validateDescriptor(hash, descriptor.getSize());
             uniqueObjects.put(hash + ":" + descriptor.getSize(), new ObjectDescriptor(hash, descriptor.getSize()));
         }
+        if (uniqueObjects.isEmpty()) {
+            return missing;
+        }
 
+        // 一次批量查询替代逐个对象的判重往返。
+        Set<String> owned = new LinkedHashSet<>();
+        for (GameObject object : gameObjectMapper.selectActiveByDescriptors(
+                caller.getUserId(), new ArrayList<>(uniqueObjects.values()))) {
+            owned.add(normalizeHash(object.getSha256()) + ":" + object.getSize());
+        }
         for (ObjectDescriptor descriptor : uniqueObjects.values()) {
-            if (findObject(caller.getUserId(), descriptor.getSha256(), descriptor.getSize()) == null) {
+            if (!owned.contains(descriptor.getSha256() + ":" + descriptor.getSize())) {
                 missing.add(descriptor);
             }
         }
@@ -196,14 +211,37 @@ public class GameObjectServiceImpl implements GameObjectService {
         }
     }
     @Override
-    public GameObject requireOwnedObject(String sha256, long size, GameCallerContext caller) {
-        String normalizedHash = normalizeHash(sha256);
-        validateDescriptor(normalizedHash, size);
-        GameObject object = findObject(caller.getUserId(), normalizedHash, size);
-        if (object == null) {
-            throw GameSaveException.notFound("OBJECT_MISSING", "快照引用的内容对象尚未上传");
+    public Map<String, GameObject> requireOwnedObjects(List<ObjectDescriptor> descriptors, GameCallerContext caller) {
+        if (descriptors == null || descriptors.isEmpty()) {
+            return new LinkedHashMap<>();
         }
-        return object;
+        if (descriptors.size() > MAX_CHECK_OBJECTS) {
+            throw GameSaveException.badRequest(
+                    "TOO_MANY_OBJECTS", "单次提交引用的内容对象数量不能超过 " + MAX_CHECK_OBJECTS);
+        }
+
+        Map<String, ObjectDescriptor> uniqueDescriptors = new LinkedHashMap<>();
+        for (ObjectDescriptor descriptor : descriptors) {
+            if (descriptor == null) {
+                throw GameSaveException.badRequest("INVALID_OBJECT", "对象描述不能为空");
+            }
+            String hash = normalizeHash(descriptor.getSha256());
+            validateDescriptor(hash, descriptor.getSize());
+            uniqueDescriptors.put(hash + ":" + descriptor.getSize(), new ObjectDescriptor(hash, descriptor.getSize()));
+        }
+
+        // 一次批量查询替代逐个对象的归属校验往返；缺失任意一个都拒绝整个 Manifest。
+        Map<String, GameObject> owned = new LinkedHashMap<>();
+        for (GameObject object : gameObjectMapper.selectActiveByDescriptors(
+                caller.getUserId(), new ArrayList<>(uniqueDescriptors.values()))) {
+            owned.put(normalizeHash(object.getSha256()) + ":" + object.getSize(), object);
+        }
+        for (String key : uniqueDescriptors.keySet()) {
+            if (!owned.containsKey(key)) {
+                throw GameSaveException.notFound("OBJECT_MISSING", "快照引用的内容对象尚未上传");
+            }
+        }
+        return owned;
     }
 
     /**
