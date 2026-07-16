@@ -21,6 +21,7 @@ import com.thx.module.gamesave.model.GameSnapshotFile;
 import com.thx.module.gamesave.model.GameSyncHead;
 import com.thx.module.gamesave.service.GameObjectService;
 import com.thx.module.gamesave.service.GameSnapshotService;
+import com.thx.module.gamesave.util.GameTokenUtil;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -211,6 +212,7 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
             GameSnapshotFile snapshotFile = new GameSnapshotFile()
                     .setSnapshotId(snapshotId)
                     .setRelativePath(resolved.getRelativePath())
+                    .setRelativePathHash(GameTokenUtil.sha256Hex(resolved.getRelativePath()))
                     .setObjectId(resolved.getObject().getObjectId())
                     .setSize(resolved.getObject().getSize())
                     .setSha256(resolved.getObject().getSha256());

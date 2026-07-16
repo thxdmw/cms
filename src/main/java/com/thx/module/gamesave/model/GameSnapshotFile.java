@@ -18,6 +18,7 @@ public class GameSnapshotFile {
     private Long id;
     private String snapshotId;
     private String relativePath;
+    private String relativePathHash;
     private String objectId;
     private Long size;
     private String sha256;

@@ -1,39 +1,24 @@
--- 仅限全新开发环境初始化。生产环境和已有数据库禁止执行本文件，
--- 正式升级必须使用 src/main/resources/db/migration 下的 Flyway 迁移。
-SET NAMES utf8mb4;
-SET FOREIGN_KEY_CHECKS = 0;
-
--- GameSave V2 业务表。文件二进制与生命周期统一委托 module.file。
-
-DROP TABLE IF EXISTS `game_sync_head`;
-DROP TABLE IF EXISTS `game_snapshot_file`;
-DROP TABLE IF EXISTS `game_snapshot`;
-DROP TABLE IF EXISTS `game_object`;
-DROP TABLE IF EXISTS `game_library`;
-DROP TABLE IF EXISTS `game_device`;
-DROP TABLE IF EXISTS `game_account`;
-
-CREATE TABLE `game_account` (
+CREATE TABLE IF NOT EXISTS `game_account` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `user_id` varchar(64) NOT NULL,
     `username` varchar(64) NOT NULL,
     `password_hash` varchar(255) NOT NULL,
-    `quota_bytes` bigint(20) NOT NULL DEFAULT 10737418240 COMMENT '用户逻辑配额，默认 10GB',
-    `used_bytes` bigint(20) NOT NULL DEFAULT 0 COMMENT '已预占的去重内容对象字节数',
+    `quota_bytes` bigint(20) NOT NULL DEFAULT 10737418240,
+    `used_bytes` bigint(20) NOT NULL DEFAULT 0,
     `status` tinyint(4) NOT NULL DEFAULT 1,
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_game_account_user_id` (`user_id`),
     UNIQUE KEY `uk_game_account_username` (`username`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='GameSave 用户';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `game_device` (
+CREATE TABLE IF NOT EXISTS `game_device` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `device_id` varchar(64) NOT NULL,
     `user_id` varchar(64) NOT NULL,
     `device_name` varchar(128) NOT NULL,
-    `token_hash` varchar(64) NOT NULL COMMENT '设备 Token SHA-256，禁止保存明文',
+    `token_hash` varchar(64) NOT NULL,
     `last_seen_time` datetime DEFAULT NULL,
     `status` tinyint(4) NOT NULL DEFAULT 1,
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -42,9 +27,9 @@ CREATE TABLE `game_device` (
     UNIQUE KEY `uk_game_device_device_id` (`device_id`),
     UNIQUE KEY `uk_game_device_token_hash` (`token_hash`),
     KEY `idx_game_device_user` (`user_id`, `status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='GameSave 设备';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `game_library` (
+CREATE TABLE IF NOT EXISTS `game_library` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `game_id` varchar(64) NOT NULL,
     `user_id` varchar(64) NOT NULL,
@@ -53,9 +38,9 @@ CREATE TABLE `game_library` (
     `provider` varchar(32) NOT NULL DEFAULT 'CUSTOM',
     `provider_game_id` varchar(128) DEFAULT NULL,
     `cover_file_id` varchar(64) DEFAULT NULL,
-    `retention_enabled` tinyint(4) NOT NULL DEFAULT 0 COMMENT '是否启用自动保留清理',
-    `retention_count` int(11) NOT NULL DEFAULT 50 COMMENT '最多保留快照数，当前 HEAD 始终保留',
-    `retention_days` int(11) NOT NULL DEFAULT 0 COMMENT '保留天数，0 表示不按时间清理',
+    `retention_enabled` tinyint(4) NOT NULL DEFAULT 0,
+    `retention_count` int(11) NOT NULL DEFAULT 50,
+    `retention_days` int(11) NOT NULL DEFAULT 0,
     `status` tinyint(4) NOT NULL DEFAULT 1,
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -64,15 +49,15 @@ CREATE TABLE `game_library` (
     UNIQUE KEY `uk_game_library_user_key` (`user_id`, `game_key`),
     UNIQUE KEY `uk_game_library_user_name` (`user_id`, `name`),
     KEY `idx_game_library_user` (`user_id`, `status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户逻辑游戏库';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `game_object` (
+CREATE TABLE IF NOT EXISTS `game_object` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `object_id` varchar(64) NOT NULL,
     `user_id` varchar(64) NOT NULL,
     `sha256` varchar(64) NOT NULL,
     `size` bigint(20) NOT NULL,
-    `file_id` varchar(64) NOT NULL COMMENT 'module.file file_asset.file_id',
+    `file_id` varchar(64) NOT NULL,
     `reference_count` bigint(20) NOT NULL DEFAULT 0,
     `status` varchar(32) NOT NULL DEFAULT 'ACTIVE',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -82,16 +67,16 @@ CREATE TABLE `game_object` (
     UNIQUE KEY `uk_game_object_user_hash_size` (`user_id`, `sha256`, `size`),
     UNIQUE KEY `uk_game_object_file_id` (`file_id`),
     KEY `idx_game_object_user_status` (`user_id`, `status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户级内容寻址对象';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `game_snapshot` (
+CREATE TABLE IF NOT EXISTS `game_snapshot` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `snapshot_id` varchar(64) NOT NULL,
     `user_id` varchar(64) NOT NULL,
     `game_id` varchar(64) NOT NULL,
     `device_id` varchar(64) NOT NULL,
     `parent_snapshot_id` varchar(64) DEFAULT NULL,
-    `trigger_type` varchar(32) NOT NULL COMMENT 'MANUAL/GAME_EXIT/BEFORE_RESTORE/IMPORT',
+    `trigger_type` varchar(32) NOT NULL,
     `description` varchar(500) DEFAULT NULL,
     `file_count` int(11) NOT NULL,
     `logical_size` bigint(20) NOT NULL,
@@ -102,9 +87,9 @@ CREATE TABLE `game_snapshot` (
     UNIQUE KEY `uk_game_snapshot_snapshot_id` (`snapshot_id`),
     KEY `idx_game_snapshot_game_time` (`user_id`, `game_id`, `create_time`),
     KEY `idx_game_snapshot_parent` (`parent_snapshot_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='不可变游戏存档快照';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `game_snapshot_file` (
+CREATE TABLE IF NOT EXISTS `game_snapshot_file` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `snapshot_id` varchar(64) NOT NULL,
     `relative_path` varchar(1024) NOT NULL,
@@ -115,9 +100,9 @@ CREATE TABLE `game_snapshot_file` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_game_snapshot_file_path` (`snapshot_id`, `relative_path`(512)),
     KEY `idx_game_snapshot_file_object` (`object_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='快照文件清单';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE `game_sync_head` (
+CREATE TABLE IF NOT EXISTS `game_sync_head` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `user_id` varchar(64) NOT NULL,
     `game_id` varchar(64) NOT NULL,
@@ -126,21 +111,4 @@ CREATE TABLE `game_sync_head` (
     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_game_sync_head_user_game` (`user_id`, `game_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='游戏同步 HEAD，使用 CAS 推进';
-
--- GameSave 只通过同 JVM 内部调用使用 module.file。默认写入不可逆的 sentinel hash，
--- 不存在配套明文 API Key，避免公开仓库种子数据意外开放 /api/v1/files。
-INSERT INTO `file_app` (`app_id`, `app_name`, `api_key_hash`, `scopes`, `quota_bytes`, `status`)
-VALUES ('game-save', 'GameSave 存档同步', 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-        'UPLOAD,READ,DELETE,LIST,PRESIGN', NULL, 1)
-ON DUPLICATE KEY UPDATE `app_name` = VALUES(`app_name`), `status` = VALUES(`status`);
-
-INSERT INTO `file_policy` (`policy_code`, `max_file_size`, `allowed_extensions`, `allowed_mime_types`, `access_level`, `bucket`, `checksum_required`, `status`)
-VALUES ('GAME_SAVE_OBJECT', 536870912, NULL, NULL, 'OWNER_ONLY', 'game-save-private', 1, 1)
-ON DUPLICATE KEY UPDATE `max_file_size` = VALUES(`max_file_size`), `access_level` = VALUES(`access_level`), `bucket` = VALUES(`bucket`), `status` = VALUES(`status`);
-
-INSERT INTO `file_app_namespace` (`app_id`, `namespace`, `policy_code`, `status`)
-VALUES ('game-save', 'save-object', 'GAME_SAVE_OBJECT', 1)
-ON DUPLICATE KEY UPDATE `policy_code` = VALUES(`policy_code`), `status` = VALUES(`status`);
-
-SET FOREIGN_KEY_CHECKS = 1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

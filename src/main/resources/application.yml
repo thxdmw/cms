@@ -31,6 +31,12 @@ spring:
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: GMT+8
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 1
+    validate-on-migrate: true
   data:
     redis:
       repositories:
@@ -49,6 +55,18 @@ mybatis-plus:
       id-type: auto
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.thx.model
+
+gamesave:
+  token-expire-days: 90
+  last-seen-update-minutes: 10
+  login-rate-limit-minutes: 5
+  login-user-ip-failures: 5
+  login-ip-failures: 20
+  register-ip-attempts: 10
+  object-cleanup-batch-size: 100
+  orphan-object-hours: 24
+  game-cleanup-snapshot-batch-size: 20
+  game-cleanup-file-batch-size: 1000
 
 #  日志配置
 logging:
