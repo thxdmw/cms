@@ -1,5 +1,6 @@
 package com.thx.module.gamesave.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.thx.module.gamesave.model.GameDevice;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -13,8 +14,10 @@ public class GameDeviceSummaryResult {
 
     private final String deviceId;
     private final String deviceName;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     private final Date lastSeenTime;
     private final boolean active;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     private final Date createTime;
 
     public static GameDeviceSummaryResult from(GameDevice device) {

@@ -1,5 +1,6 @@
 package com.thx.module.gamesave.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -17,6 +18,7 @@ public class SnapshotManifestResult {
     private final String parentSnapshotId;
     private final String triggerType;
     private final String description;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     private final Date createTime;
     private final List<SnapshotManifestFileResult> files;
 }

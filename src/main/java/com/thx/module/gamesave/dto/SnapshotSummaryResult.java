@@ -1,5 +1,6 @@
 package com.thx.module.gamesave.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.thx.module.gamesave.model.GameSnapshot;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -19,6 +20,7 @@ public class SnapshotSummaryResult {
     private final int fileCount;
     private final long logicalSize;
     private final int changedFileCount;
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     private final Date createTime;
 
     public static SnapshotSummaryResult from(GameSnapshot snapshot) {
