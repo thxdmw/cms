@@ -29,6 +29,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
+        <!-- Flyway 8 社区版不再支持生产环境仍在使用的 MySQL 5.7。 -->
+        <flyway.version>7.15.0</flyway.version>
 
         <!-- 数据库与连接池 -->
         <druid.version>1.2.12</druid.version>
@@ -99,10 +101,6 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-mysql</artifactId>
         </dependency>
         <!--Druid 数据库连接池：连接池管理 + SQL 防火墙 + 监控页面-->
         <dependency>
