@@ -36,6 +36,12 @@ public interface GameLibraryMapper extends BaseMapper<GameLibrary> {
 
     @Update("UPDATE game_library SET status = 0 WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1")
     int markDeleted(@Param("gameId") String gameId, @Param("userId") String userId);
+
+    @Update("UPDATE game_library SET status = 2 WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1")
+    int markDeleting(@Param("gameId") String gameId, @Param("userId") String userId);
+
+    @Update("UPDATE game_library SET status = 0 WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 2")
+    int completeDeleting(@Param("gameId") String gameId, @Param("userId") String userId);
     /** 重新启用已删除的同名游戏，避免唯一索引阻止用户删除后再次添加。 */
     @Update("UPDATE game_library SET game_key = #{gameKey}, provider = #{provider}, provider_game_id = #{providerGameId}, "
             + "cover_file_id = NULL, retention_enabled = 0, retention_count = 50, retention_days = 0, status = 1 "

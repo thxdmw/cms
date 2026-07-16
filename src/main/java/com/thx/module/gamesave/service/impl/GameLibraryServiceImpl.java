@@ -7,10 +7,12 @@ import com.thx.module.gamesave.dto.GameCreateRequest;
 import com.thx.module.gamesave.dto.GameLibraryResult;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameLibraryMapper;
+import com.thx.module.gamesave.mapper.GameCleanupTaskMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotFileMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotMapper;
 import com.thx.module.gamesave.mapper.GameSyncHeadMapper;
 import com.thx.module.gamesave.model.GameLibrary;
+import com.thx.module.gamesave.model.GameCleanupTask;
 import com.thx.module.gamesave.model.GameSnapshot;
 import com.thx.module.gamesave.model.GameSnapshotFile;
 import com.thx.module.gamesave.service.GameLibraryService;
@@ -37,6 +39,7 @@ public class GameLibraryServiceImpl implements GameLibraryService {
     private static final String ACTIVE = "ACTIVE";
 
     private final GameLibraryMapper gameLibraryMapper;
+    private final GameCleanupTaskMapper gameCleanupTaskMapper;
     private final GameSnapshotMapper gameSnapshotMapper;
     private final GameSnapshotFileMapper gameSnapshotFileMapper;
     private final GameSyncHeadMapper gameSyncHeadMapper;
@@ -128,6 +131,36 @@ public class GameLibraryServiceImpl implements GameLibraryService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(String gameId, GameCallerContext caller) {
+        if (gameId == null || gameId.trim().isEmpty()) {
+            throw GameSaveException.badRequest("INVALID_GAME_ID", "游戏 ID 不能为空");
+        }
+        String normalizedGameId = gameId.trim();
+        GameLibrary game = gameLibraryMapper.selectActiveOwned(normalizedGameId, caller.getUserId());
+        if (game == null) {
+            throw GameSaveException.notFound("GAME_NOT_FOUND", "游戏不存在或已经删除");
+        }
+        if (gameLibraryMapper.markDeleting(normalizedGameId, caller.getUserId()) != 1) {
+            throw GameSaveException.conflict("GAME_STATE_CHANGED", "游戏状态已变化，请重新加载游戏库");
+        }
+        gameSyncHeadMapper.delete(new LambdaQueryWrapper<com.thx.module.gamesave.model.GameSyncHead>()
+                .eq(com.thx.module.gamesave.model.GameSyncHead::getUserId, caller.getUserId())
+                .eq(com.thx.module.gamesave.model.GameSyncHead::getGameId, normalizedGameId));
+
+        String taskId = UUIDUtil.uuid();
+        if (gameCleanupTaskMapper.resetForGame(taskId, caller.getUserId(), normalizedGameId) == 0) {
+            gameCleanupTaskMapper.insert(new GameCleanupTask()
+                    .setTaskId(taskId)
+                    .setUserId(caller.getUserId())
+                    .setGameId(normalizedGameId)
+                    .setStatus("PENDING")
+                    .setCursor(0L)
+                    .setRetryCount(0));
+        }
+    }
+
+    /** 旧同步删除逻辑仅保留为迁移期间的实现参考，不再从 HTTP 请求调用。 */
+    @SuppressWarnings("unused")
+    private void deleteSynchronously(String gameId, GameCallerContext caller) {
         if (gameId == null || gameId.trim().isEmpty()) {
             throw GameSaveException.badRequest("INVALID_GAME_ID", "游戏 ID 不能为空");
         }

@@ -25,4 +25,11 @@ public interface GameSnapshotMapper extends BaseMapper<GameSnapshot> {
             + "WHERE user_id = #{userId} AND game_id = #{gameId} AND status = 'ACTIVE' "
             + "ORDER BY create_time DESC, id DESC LIMIT 2000")
     List<GameSnapshot> selectActiveForRetention(@Param("userId") String userId,
-                                                @Param("gameId") String gameId);}
+                                                @Param("gameId") String gameId);
+
+    @Select("SELECT * FROM game_snapshot WHERE user_id = #{userId} AND game_id = #{gameId} "
+            + "AND status = 'ACTIVE' AND id > #{cursor} ORDER BY id ASC LIMIT 1")
+    GameSnapshot selectNextForGameCleanup(@Param("userId") String userId,
+                                          @Param("gameId") String gameId,
+                                          @Param("cursor") long cursor);
+}
