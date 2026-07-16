@@ -20,7 +20,7 @@ public interface GameCleanupTaskMapper extends BaseMapper<GameCleanupTask> {
             + "WHERE task_id = #{taskId} AND status IN ('PENDING','FAILED')")
     int claim(@Param("taskId") String taskId);
 
-    @Update("UPDATE game_cleanup_task SET status = 'PENDING', cursor = #{cursor}, last_error = NULL "
+    @Update("UPDATE game_cleanup_task SET status = 'PENDING', `cursor` = #{cursor}, last_error = NULL "
             + "WHERE task_id = #{taskId} AND status = 'RUNNING'")
     int advance(@Param("taskId") String taskId, @Param("cursor") long cursor);
 
@@ -32,7 +32,7 @@ public interface GameCleanupTaskMapper extends BaseMapper<GameCleanupTask> {
             + "last_error = LEFT(#{error}, 1000) WHERE task_id = #{taskId} AND status = 'RUNNING'")
     int fail(@Param("taskId") String taskId, @Param("error") String error);
 
-    @Update("UPDATE game_cleanup_task SET task_id = #{taskId}, status = 'PENDING', cursor = 0, "
+    @Update("UPDATE game_cleanup_task SET task_id = #{taskId}, status = 'PENDING', `cursor` = 0, "
             + "retry_count = 0, last_error = NULL WHERE user_id = #{userId} AND game_id = #{gameId}")
     int resetForGame(@Param("taskId") String taskId,
                      @Param("userId") String userId,

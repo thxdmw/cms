@@ -1,6 +1,7 @@
 package com.thx.module.gamesave.model;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -20,6 +21,7 @@ public class GameCleanupTask {
     private String userId;
     private String gameId;
     private String status;
+    @TableField("`cursor`")
     private Long cursor;
     private Integer retryCount;
     private String lastError;

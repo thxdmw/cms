@@ -63,7 +63,7 @@ class GameObjectServiceImplTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "save.dat", "application/octet-stream", content);
 
-        when(gameObjectMapper.selectOne(any())).thenReturn(null);
+        when(gameObjectMapper.selectAnyByDescriptor("user-1", expectedHash, content.length)).thenReturn(null);
         when(fileObjectLookupService.findActiveByHash(anyString(), anyString(), anyLong(), any()))
                 .thenReturn(null);
         when(fileSystemService.upload(eq(file), anyString(), eq("user-1"), any()))
@@ -88,7 +88,7 @@ class GameObjectServiceImplTest {
                 "file", "save.dat", "application/octet-stream", content);
         IllegalStateException databaseFailure = new IllegalStateException("数据库写入失败");
 
-        when(gameObjectMapper.selectOne(any())).thenReturn(null);
+        when(gameObjectMapper.selectAnyByDescriptor("user-1", expectedHash, content.length)).thenReturn(null);
         when(fileObjectLookupService.findActiveByHash(anyString(), anyString(), anyLong(), any()))
                 .thenReturn(null);
         when(fileSystemService.upload(eq(file), anyString(), eq("user-1"), any()))
@@ -114,7 +114,7 @@ class GameObjectServiceImplTest {
                 "file", "save.dat", "application/octet-stream", content);
         IllegalStateException databaseFailure = new IllegalStateException("原始数据库异常");
 
-        when(gameObjectMapper.selectOne(any())).thenReturn(null);
+        when(gameObjectMapper.selectAnyByDescriptor("user-1", expectedHash, content.length)).thenReturn(null);
         when(fileObjectLookupService.findActiveByHash(anyString(), anyString(), anyLong(), any()))
                 .thenReturn(null);
         when(fileSystemService.upload(eq(file), anyString(), eq("user-1"), any()))
@@ -144,7 +144,7 @@ class GameObjectServiceImplTest {
                 .setSha256(hash)
                 .setSize((long) content.length)
                 .setStatus("ACTIVE");
-        when(gameObjectMapper.selectOne(any())).thenReturn(existing);
+        when(gameObjectMapper.selectAnyByDescriptor("user-1", hash, content.length)).thenReturn(existing);
 
         GameObject actual = service.put(file, hash, content.length, caller);
 
@@ -154,7 +154,7 @@ class GameObjectServiceImplTest {
     }
 
     @Test
-    void lastSnapshotReferenceShouldReleaseObjectQuota() {
+    void lastSnapshotReferenceShouldEnterDeletingStateWithoutExternalIo() {
         GameObject object = new GameObject()
                 .setObjectId("object-1")
                 .setUserId("user-1")
@@ -164,12 +164,13 @@ class GameObjectServiceImplTest {
                 .setStatus("ACTIVE");
         when(gameObjectMapper.decrementReference("object-1", "user-1")).thenReturn(1);
         when(gameObjectMapper.selectOne(any())).thenReturn(object);
-        when(gameObjectMapper.markDeletedIfUnreferenced("object-1", "user-1")).thenReturn(1);
+        when(gameObjectMapper.markDeletingIfUnreferenced("object-1", "user-1")).thenReturn(1);
 
         service.releaseSnapshotReference("object-1", caller);
 
-        verify(fileSystemService).delete(eq("file-1"), any());
-        verify(gameQuotaService).release("user-1", 4096L);
+        verify(gameObjectMapper).markDeletingIfUnreferenced("object-1", "user-1");
+        verify(fileSystemService, never()).delete(eq("file-1"), any());
+        verify(gameQuotaService, never()).release("user-1", 4096L);
     }
     private FileInfoResult fileInfo(String fileId, String sha256, long size) {
         return new FileInfoResult(
