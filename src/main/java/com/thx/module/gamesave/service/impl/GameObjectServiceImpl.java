@@ -55,6 +55,8 @@ public class GameObjectServiceImpl implements GameObjectService {
     private static final String APP_ID = "game-save";
     private static final String SAVE_NAMESPACE = "save-object";
     private static final String ACTIVE = "ACTIVE";
+    private static final String DELETING = "DELETING";
+    private static final String DELETED = "DELETED";
     private static final Pattern SHA256_PATTERN = Pattern.compile("^[a-f0-9]{64}$");
     private static final Set<String> FILE_SCOPES = new LinkedHashSet<>(
             Arrays.asList("UPLOAD", "READ", "DELETE", "LIST", "PRESIGN"));
@@ -119,9 +121,12 @@ public class GameObjectServiceImpl implements GameObjectService {
             throw GameSaveException.badRequest("SIZE_MISMATCH", "文件大小与对象描述不一致");
         }
 
-        GameObject existing = findObject(caller.getUserId(), normalizedHash, expectedSize);
-        if (existing != null) {
+        GameObject existing = findAnyObject(caller.getUserId(), normalizedHash, expectedSize);
+        if (existing != null && ACTIVE.equals(existing.getStatus())) {
             return existing;
+        }
+        if (existing != null && DELETING.equals(existing.getStatus())) {
+            throw GameSaveException.conflict("OBJECT_CLEANUP_IN_PROGRESS", "相同内容正在清理，请稍后重试");
         }
 
         // 首次建立用户内容对象前原子预占配额；并发重复上传的失败方会在 finally 中释放。
@@ -148,6 +153,23 @@ public class GameObjectServiceImpl implements GameObjectService {
                 throw GameSaveException.badRequest("CHECKSUM_MISMATCH", "服务端文件校验结果与客户端对象描述不一致");
             }
 
+            if (existing != null && DELETED.equals(existing.getStatus())) {
+                int reactivated = gameObjectMapper.reactivateDeleted(
+                        existing.getId(), caller.getUserId(), fileInfo.getFileId());
+                if (reactivated == 1) {
+                    reservationRetained = true;
+                    return findActiveObject(caller.getUserId(), normalizedHash, expectedSize);
+                }
+                if (uploadedNow) {
+                    cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
+                }
+                GameObject winner = findAnyObject(caller.getUserId(), normalizedHash, expectedSize);
+                if (winner != null && ACTIVE.equals(winner.getStatus())) {
+                    return winner;
+                }
+                throw GameSaveException.conflict("OBJECT_REACTIVATION_CONFLICT", "相同内容重新激活发生并发冲突，请重试");
+            }
+
             GameObject object = new GameObject()
                     .setObjectId(UUIDUtil.uuid())
                     .setUserId(caller.getUserId())
@@ -161,11 +183,11 @@ public class GameObjectServiceImpl implements GameObjectService {
                 reservationRetained = true;
                 return object;
             } catch (DuplicateKeyException duplicate) {
-                GameObject winner = findObject(caller.getUserId(), normalizedHash, expectedSize);
+                GameObject winner = findAnyObject(caller.getUserId(), normalizedHash, expectedSize);
                 if (uploadedNow) {
                     cleanupUploadedFile(fileInfo.getFileId(), fileCaller);
                 }
-                if (winner != null) {
+                if (winner != null && ACTIVE.equals(winner.getStatus())) {
                     return winner;
                 }
                 throw duplicate;
@@ -201,13 +223,10 @@ public class GameObjectServiceImpl implements GameObjectService {
             throw GameSaveException.notFound("OBJECT_NOT_FOUND", "内容对象不存在");
         }
         if (object.getReferenceCount() != null && object.getReferenceCount() == 0L) {
-            FileCallerContext fileCaller = fileCaller(caller);
-            fileSystemService.delete(object.getFileId(), fileCaller);
-            int deleted = gameObjectMapper.markDeletedIfUnreferenced(normalizedObjectId, caller.getUserId());
-            if (deleted != 1) {
+            int deleting = gameObjectMapper.markDeletingIfUnreferenced(normalizedObjectId, caller.getUserId());
+            if (deleting != 1) {
                 throw GameSaveException.conflict("OBJECT_STATE_CHANGED", "内容对象状态已变化，请重新加载快照时间线");
             }
-            gameQuotaService.release(caller.getUserId(), object.getSize());
         }
     }
     @Override
@@ -265,13 +284,17 @@ public class GameObjectServiceImpl implements GameObjectService {
         }
     }
 
-    private GameObject findObject(String userId, String sha256, long size) {
+    private GameObject findActiveObject(String userId, String sha256, long size) {
         return gameObjectMapper.selectOne(new LambdaQueryWrapper<GameObject>()
                 .eq(GameObject::getUserId, userId)
                 .eq(GameObject::getSha256, normalizeHash(sha256))
                 .eq(GameObject::getSize, size)
                 .eq(GameObject::getStatus, ACTIVE)
                 .last("LIMIT 1"));
+    }
+
+    private GameObject findAnyObject(String userId, String sha256, long size) {
+        return gameObjectMapper.selectAnyByDescriptor(userId, normalizeHash(sha256), size);
     }
 
     private FileCallerContext fileCaller(GameCallerContext caller) {

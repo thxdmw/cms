@@ -38,9 +38,35 @@ public interface GameObjectMapper extends BaseMapper<GameObject> {
             + "AND status = 'ACTIVE' AND reference_count > 0")
     int decrementReference(@Param("objectId") String objectId, @Param("userId") String userId);
 
-    /** 仅将零引用的 ACTIVE 对象标记为删除，确保容量只释放一次。 */
-    @Update("UPDATE game_object SET status = 'DELETED' "
+    /** 零引用对象只进入待清理状态，底层文件删除由短事务之外的后台任务完成。 */
+    @Update("UPDATE game_object SET status = 'DELETING' "
             + "WHERE object_id = #{objectId} AND user_id = #{userId} "
             + "AND status = 'ACTIVE' AND reference_count = 0")
-    int markDeletedIfUnreferenced(@Param("objectId") String objectId,
-                                  @Param("userId") String userId);}
+    int markDeletingIfUnreferenced(@Param("objectId") String objectId,
+                                   @Param("userId") String userId);
+
+    @Select("SELECT * FROM game_object WHERE user_id = #{userId} AND sha256 = #{sha256} AND size = #{size} LIMIT 1")
+    GameObject selectAnyByDescriptor(@Param("userId") String userId,
+                                     @Param("sha256") String sha256,
+                                     @Param("size") long size);
+
+    @Update("UPDATE game_object SET file_id = #{newFileId}, reference_count = 0, status = 'ACTIVE' "
+            + "WHERE id = #{id} AND user_id = #{userId} AND status = 'DELETED'")
+    int reactivateDeleted(@Param("id") Long id,
+                          @Param("userId") String userId,
+                          @Param("newFileId") String newFileId);
+
+    @Select("SELECT * FROM game_object WHERE status = 'DELETING' ORDER BY update_time ASC, id ASC LIMIT #{limit}")
+    List<GameObject> selectDeletingBatch(@Param("limit") int limit);
+
+    @Select("SELECT * FROM game_object WHERE status = 'ACTIVE' AND reference_count = 0 "
+            + "AND create_time < #{threshold} ORDER BY create_time ASC, id ASC LIMIT #{limit}")
+    List<GameObject> selectOrphanCandidates(@Param("threshold") java.util.Date threshold,
+                                            @Param("limit") int limit);
+
+    @Update("UPDATE game_object SET status = 'DELETED' "
+            + "WHERE object_id = #{objectId} AND user_id = #{userId} "
+            + "AND status = 'DELETING' AND reference_count = 0")
+    int markDeletedFromDeleting(@Param("objectId") String objectId,
+                                @Param("userId") String userId);
+}
