@@ -4,10 +4,12 @@ import com.thx.module.gamesave.context.GameCallerContext;
 import com.thx.module.gamesave.dto.GameCreateRequest;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameLibraryMapper;
+import com.thx.module.gamesave.mapper.GameCleanupTaskMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotFileMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotMapper;
 import com.thx.module.gamesave.mapper.GameSyncHeadMapper;
 import com.thx.module.gamesave.model.GameLibrary;
+import com.thx.module.gamesave.model.GameCleanupTask;
 import com.thx.module.gamesave.model.GameSnapshot;
 import com.thx.module.gamesave.model.GameSnapshotFile;
 import com.thx.module.gamesave.service.GameObjectService;
@@ -29,6 +31,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class GameLibraryServiceImplTest {
     @Mock private GameLibraryMapper gameLibraryMapper;
+    @Mock private GameCleanupTaskMapper gameCleanupTaskMapper;
     @Mock private GameSnapshotMapper gameSnapshotMapper;
     @Mock private GameSnapshotFileMapper gameSnapshotFileMapper;
     @Mock private GameSyncHeadMapper gameSyncHeadMapper;
@@ -37,7 +40,8 @@ class GameLibraryServiceImplTest {
     private GameCallerContext caller;
 
     @BeforeEach void setUp() {
-        service = new GameLibraryServiceImpl(gameLibraryMapper, gameSnapshotMapper, gameSnapshotFileMapper, gameSyncHeadMapper, gameObjectService);
+        service = new GameLibraryServiceImpl(gameLibraryMapper, gameCleanupTaskMapper,
+                gameSnapshotMapper, gameSnapshotFileMapper, gameSyncHeadMapper, gameObjectService);
         caller = new GameCallerContext(); caller.setUserId("user-1"); caller.setDeviceId("device-1");
     }
 
@@ -64,19 +68,19 @@ class GameLibraryServiceImplTest {
         verify(gameLibraryMapper, org.mockito.Mockito.never()).insert(any(GameLibrary.class));
     }
 
-    @Test void deleteShouldReleaseObjectsAndMarkCloudGameDeleted() {
+    @Test void deleteShouldHideGameAndCreateCleanupTaskWithoutReleasingObjectsInRequest() {
         GameLibrary game = new GameLibrary().setGameId("game-1").setUserId("user-1").setStatus(1);
-        GameSnapshot snapshot = new GameSnapshot().setSnapshotId("snapshot-1").setStatus("ACTIVE");
-        GameSnapshotFile file = new GameSnapshotFile().setSnapshotId("snapshot-1").setObjectId("object-1");
         when(gameLibraryMapper.selectActiveOwned("game-1", "user-1")).thenReturn(game);
-        when(gameSnapshotMapper.selectList(any())).thenReturn(Collections.singletonList(snapshot));
-        when(gameSnapshotFileMapper.selectList(any())).thenReturn(Collections.singletonList(file));
-        when(gameSnapshotMapper.markDeleted("snapshot-1", "user-1", "game-1")).thenReturn(1);
-        when(gameLibraryMapper.markDeleted("game-1", "user-1")).thenReturn(1);
+        when(gameLibraryMapper.markDeleting("game-1", "user-1")).thenReturn(1);
+        when(gameCleanupTaskMapper.resetForGame(any(), org.mockito.ArgumentMatchers.eq("user-1"),
+                org.mockito.ArgumentMatchers.eq("game-1"))).thenReturn(0);
+
         service.delete("game-1", caller);
-        verify(gameObjectService).releaseSnapshotReference("object-1", caller);
-        verify(gameSnapshotMapper).markDeleted("snapshot-1", "user-1", "game-1");
+
+        verify(gameLibraryMapper).markDeleting("game-1", "user-1");
         verify(gameSyncHeadMapper).delete(any());
-        verify(gameLibraryMapper).markDeleted("game-1", "user-1");
+        verify(gameCleanupTaskMapper).insert(any(GameCleanupTask.class));
+        verify(gameObjectService, org.mockito.Mockito.never())
+                .releaseSnapshotReference(any(), any());
     }
 }

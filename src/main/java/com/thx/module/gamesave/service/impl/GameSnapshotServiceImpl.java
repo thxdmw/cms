@@ -3,6 +3,7 @@ package com.thx.module.gamesave.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.thx.common.util.UUIDUtil;
 import com.thx.module.gamesave.context.GameCallerContext;
+import com.thx.module.gamesave.config.GameSaveProtocolLimits;
 import com.thx.module.gamesave.dto.ObjectDescriptor;
 import com.thx.module.gamesave.dto.SnapshotCommitRequest;
 import com.thx.module.gamesave.dto.SnapshotCommitResult;
@@ -47,7 +48,7 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
     public List<com.thx.module.gamesave.dto.SnapshotSummaryResult> listSnapshots(
             String gameId, int limit, GameCallerContext caller) {
         requireOwnedGame(gameId, caller.getUserId());
-        int safeLimit = Math.max(1, Math.min(limit, 200));
+        int safeLimit = Math.max(1, Math.min(limit, GameSaveProtocolLimits.MAXIMUM_SNAPSHOT_LIST_LIMIT));
         List<GameSnapshot> snapshots = gameSnapshotMapper.selectList(
                 new LambdaQueryWrapper<GameSnapshot>()
                         .eq(GameSnapshot::getGameId, gameId.trim())
@@ -110,7 +111,7 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
     private static final Set<String> ALLOWED_TRIGGER_TYPES = new HashSet<>(
             Arrays.asList("MANUAL", "GAME_EXIT", "BEFORE_RESTORE", "IMPORT"));
     // 单个快照允许提交的文件数量上限，避免无界 Manifest 触发超大批量查询或拖垮数据库。
-    private static final int MAX_MANIFEST_FILES = 5000;
+    private static final int MAX_MANIFEST_FILES = GameSaveProtocolLimits.MAXIMUM_MANIFEST_FILES;
 
     private final GameLibraryMapper gameLibraryMapper;
     private final GameSnapshotMapper gameSnapshotMapper;
@@ -372,7 +373,8 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
         if (!ALLOWED_TRIGGER_TYPES.contains(triggerType)) {
             throw GameSaveException.badRequest("INVALID_TRIGGER_TYPE", "不支持的快照触发类型");
         }
-        if (request.getDescription() != null && request.getDescription().trim().length() > 500) {
+        if (request.getDescription() != null
+                && request.getDescription().trim().length() > GameSaveProtocolLimits.DESCRIPTION_MAX_LENGTH) {
             throw GameSaveException.badRequest("DESCRIPTION_TOO_LONG", "快照描述长度不能超过 500");
         }
         if (request.getFiles() != null && request.getFiles().size() > MAX_MANIFEST_FILES) {
@@ -386,7 +388,10 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
             throw GameSaveException.badRequest("INVALID_PATH", "快照文件路径不能为空");
         }
         String normalized = path.trim().replace('\\', '/');
-        if (normalized.isEmpty() || normalized.length() > 1024 || normalized.startsWith("/") || normalized.contains(":")) {
+        if (normalized.isEmpty()
+                || normalized.length() > GameSaveProtocolLimits.RELATIVE_PATH_MAX_LENGTH
+                || normalized.startsWith("/")
+                || normalized.contains(":")) {
             throw GameSaveException.badRequest("INVALID_PATH", "非法快照相对路径: " + path);
         }
         String[] segments = normalized.split("/", -1);
