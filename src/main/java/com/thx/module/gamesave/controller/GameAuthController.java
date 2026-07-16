@@ -4,6 +4,8 @@ import com.thx.common.annotation.AnonymousAccess;
 import com.thx.module.gamesave.dto.GameLoginRequest;
 import com.thx.module.gamesave.dto.GameLoginResult;
 import com.thx.module.gamesave.dto.GameRegisterRequest;
+import com.thx.module.gamesave.exception.GameSaveException;
+import com.thx.module.gamesave.service.GameAuthRateLimitService;
 import com.thx.module.gamesave.service.GameAuthService;
 import com.thx.module.gamesave.vo.GameSaveResponse;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
+
 /** GameSave 客户端账号注册与登录接口。 */
 @RestController
 @RequestMapping("/api/game-save/v1/auth")
@@ -21,19 +25,41 @@ import org.springframework.web.bind.annotation.RestController;
 public class GameAuthController {
 
     private final GameAuthService gameAuthService;
+    private final GameAuthRateLimitService rateLimitService;
 
-    /** 创建独立 GameSave 账号，同时签发当前设备 Token。 */
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     @AnonymousAccess
-    public GameSaveResponse<GameLoginResult> register(@RequestBody GameRegisterRequest request) {
+    public GameSaveResponse<GameLoginResult> register(@RequestBody GameRegisterRequest request,
+                                                       HttpServletRequest servletRequest) {
+        rateLimitService.assertAndRecordRegistrationAllowed(clientIp(servletRequest));
         return GameSaveResponse.success("注册成功", gameAuthService.register(request));
     }
 
-    /** 登录成功后轮换指定设备 Token，明文 Token 仅在本次响应返回。 */
     @PostMapping("/login")
     @AnonymousAccess
-    public GameSaveResponse<GameLoginResult> login(@RequestBody GameLoginRequest request) {
-        return GameSaveResponse.success("登录成功", gameAuthService.login(request));
+    public GameSaveResponse<GameLoginResult> login(@RequestBody GameLoginRequest request,
+                                                    HttpServletRequest servletRequest) {
+        String username = request == null ? null : request.getUsername();
+        String ip = clientIp(servletRequest);
+        rateLimitService.assertLoginAllowed(username, ip);
+        try {
+            GameLoginResult result = gameAuthService.login(request);
+            rateLimitService.recordLoginSuccess(username, ip);
+            return GameSaveResponse.success("登录成功", result);
+        } catch (GameSaveException failure) {
+            if ("INVALID_CREDENTIALS".equals(failure.getCode())) {
+                rateLimitService.recordLoginFailure(username, ip);
+            }
+            throw failure;
+        }
+    }
+
+    private String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.trim().isEmpty()) {
+            return forwarded.split(",", 2)[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

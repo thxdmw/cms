@@ -12,6 +12,12 @@ public class GameSaveProperties {
 
     private int tokenExpireDays = 90;
     private int lastSeenUpdateMinutes = 10;
+    private int loginRateLimitMinutes = 5;
+    private int loginUserIpFailures = 5;
+    private int loginIpFailures = 20;
+    private int registerIpAttempts = 10;
     private int objectCleanupBatchSize = 100;
     private int orphanObjectHours = 24;
+    private int gameCleanupSnapshotBatchSize = 20;
+    private int gameCleanupFileBatchSize = 1000;
 }

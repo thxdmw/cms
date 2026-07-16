@@ -23,6 +23,7 @@ public class GameDevice {
     private String userId;
     private String deviceName;
     private String tokenHash;
+    private Date tokenExpireTime;
     private Date lastSeenTime;
     private Integer status;
     private Date createTime;

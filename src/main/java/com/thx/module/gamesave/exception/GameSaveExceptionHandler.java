@@ -2,6 +2,7 @@ package com.thx.module.gamesave.exception;
 
 import com.thx.module.gamesave.vo.GameSaveResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -13,7 +14,11 @@ public class GameSaveExceptionHandler {
 
     @ExceptionHandler(GameSaveException.class)
     public ResponseEntity<GameSaveResponse<Void>> handleGameSaveException(GameSaveException exception) {
-        return ResponseEntity.status(exception.getStatus())
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(exception.getStatus());
+        if (exception.getRetryAfterSeconds() != null) {
+            response.header(HttpHeaders.RETRY_AFTER, String.valueOf(exception.getRetryAfterSeconds()));
+        }
+        return response
                 .body(GameSaveResponse.<Void>error(
                         exception.getStatus(), exception.getCode(), exception.getMessage()));
     }

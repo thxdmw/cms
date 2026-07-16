@@ -8,11 +8,17 @@ public class GameSaveException extends RuntimeException {
 
     private final int status;
     private final String code;
+    private final Integer retryAfterSeconds;
 
     public GameSaveException(int status, String code, String message) {
+        this(status, code, message, null);
+    }
+
+    public GameSaveException(int status, String code, String message, Integer retryAfterSeconds) {
         super(message);
         this.status = status;
         this.code = code;
+        this.retryAfterSeconds = retryAfterSeconds;
     }
 
     public static GameSaveException badRequest(String code, String message) {
@@ -33,5 +39,9 @@ public class GameSaveException extends RuntimeException {
 
     public static GameSaveException conflict(String code, String message) {
         return new GameSaveException(409, code, message);
+    }
+
+    public static GameSaveException tooManyRequests(String code, String message, int retryAfterSeconds) {
+        return new GameSaveException(429, code, message, Math.max(1, retryAfterSeconds));
     }
 }

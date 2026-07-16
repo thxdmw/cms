@@ -3,6 +3,7 @@ package com.thx.module.gamesave.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.thx.common.util.UUIDUtil;
+import com.thx.module.gamesave.config.GameSaveProperties;
 import com.thx.module.gamesave.dto.GameLoginRequest;
 import com.thx.module.gamesave.dto.GameLoginResult;
 import com.thx.module.gamesave.dto.GameRegisterRequest;
@@ -19,6 +20,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.Date;
 import java.util.regex.Pattern;
 
@@ -31,6 +33,7 @@ public class GameAuthServiceImpl implements GameAuthService {
 
     private final GameAccountMapper gameAccountMapper;
     private final GameDeviceMapper gameDeviceMapper;
+    private final GameSaveProperties properties;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -79,6 +82,7 @@ public class GameAuthServiceImpl implements GameAuthService {
     private GameLoginResult issueDeviceToken(GameAccount account, String rawDeviceId, String rawDeviceName) {
         String deviceId = rawDeviceId.trim();
         GameDevice device = gameDeviceMapper.selectOne(new LambdaQueryWrapper<GameDevice>()
+                .eq(GameDevice::getUserId, account.getUserId())
                 .eq(GameDevice::getDeviceId, deviceId)
                 .last("LIMIT 1"));
         if (device != null && !account.getUserId().equals(device.getUserId())) {
@@ -88,12 +92,15 @@ public class GameAuthServiceImpl implements GameAuthService {
         String token = GameTokenUtil.generateToken();
         String tokenHash = GameTokenUtil.sha256Hex(token);
         Date now = new Date();
+        Date tokenExpireTime = new Date(now.getTime()
+                + Duration.ofDays(Math.max(1, properties.getTokenExpireDays())).toMillis());
         if (device == null) {
             device = new GameDevice()
                     .setDeviceId(deviceId)
                     .setUserId(account.getUserId())
                     .setDeviceName(rawDeviceName.trim())
                     .setTokenHash(tokenHash)
+                    .setTokenExpireTime(tokenExpireTime)
                     .setLastSeenTime(now)
                     .setStatus(1);
             gameDeviceMapper.insert(device);
@@ -102,6 +109,7 @@ public class GameAuthServiceImpl implements GameAuthService {
                     .eq(GameDevice::getId, device.getId())
                     .set(GameDevice::getDeviceName, rawDeviceName.trim())
                     .set(GameDevice::getTokenHash, tokenHash)
+                    .set(GameDevice::getTokenExpireTime, tokenExpireTime)
                     .set(GameDevice::getLastSeenTime, now)
                     .set(GameDevice::getStatus, 1));
         }
