@@ -24,6 +24,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -144,11 +149,32 @@ class GameSaveApiIntegrationTest {
                 + "\",\"triggerType\":\"MANUAL\",\"description\":\"device-one\",\"files\":[{"
                 + "\"path\":\"root1/save.dat\",\"sha256\":\"" + hash + "\",\"size\":"
                 + content.length + "}]}";
-        authorized(post(API + "/games/" + gameId + "/snapshots"), token, winningCommit, 201);
         String losingCommit = "{\"expectedHeadSnapshotId\":\"" + secondSnapshot
                 + "\",\"triggerType\":\"MANUAL\",\"description\":\"device-two\",\"files\":[]}";
-        JsonNode conflict = authorized(post(API + "/games/" + gameId + "/snapshots"),
-                secondToken, losingCommit, 409);
+        final String firstDeviceToken = token;
+        final String concurrentSecondToken = secondToken;
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CommitAttempt firstAttempt;
+        CommitAttempt secondAttempt;
+        try {
+            Future<CommitAttempt> firstFuture = executor.submit(() -> concurrentCommit(
+                    ready, start, gameId, firstDeviceToken, winningCommit));
+            Future<CommitAttempt> secondFuture = executor.submit(() -> concurrentCommit(
+                    ready, start, gameId, concurrentSecondToken, losingCommit));
+            assertTrue(ready.await(10, TimeUnit.SECONDS), "两个提交线程未能同时就绪");
+            start.countDown();
+            firstAttempt = firstFuture.get(30, TimeUnit.SECONDS);
+            secondAttempt = secondFuture.get(30, TimeUnit.SECONDS);
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+        assertTrue((firstAttempt.status == 201 && secondAttempt.status == 409)
+                        || (firstAttempt.status == 409 && secondAttempt.status == 201),
+                "两个基于相同旧 HEAD 的并发提交必须且只能有一个成功");
+        JsonNode conflict = firstAttempt.status == 409 ? firstAttempt.body : secondAttempt.body;
         assertEquals("SYNC_CONFLICT", conflict.path("code").asText());
 
         authorized(delete(API + "/devices/" + secondDeviceId), token, null, 200);
@@ -206,6 +232,23 @@ class GameSaveApiIntegrationTest {
                 .andReturn().getResponse().getContentAsString());
     }
 
+    private CommitAttempt concurrentCommit(CountDownLatch ready,
+                                            CountDownLatch start,
+                                            String gameId,
+                                            String token,
+                                            String body) throws Exception {
+        ready.countDown();
+        if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("等待并发提交屏障超时");
+        org.springframework.test.web.servlet.MvcResult result = mockMvc.perform(
+                        post(API + "/games/" + gameId + "/snapshots")
+                                .header("Authorization", "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                .andReturn();
+        return new CommitAttempt(result.getResponse().getStatus(),
+                json(result.getResponse().getContentAsString()));
+    }
+
     private JsonNode json(String value) throws Exception {
         return objectMapper.readTree(value);
     }
@@ -236,6 +279,16 @@ class GameSaveApiIntegrationTest {
             this.password = password;
             this.deviceId = deviceId;
             this.deviceName = deviceName;
+        }
+    }
+
+    private static final class CommitAttempt {
+        private final int status;
+        private final JsonNode body;
+
+        private CommitAttempt(int status, JsonNode body) {
+            this.status = status;
+            this.body = body;
         }
     }
 }

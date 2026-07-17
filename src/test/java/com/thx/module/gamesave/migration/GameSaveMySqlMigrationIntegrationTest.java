@@ -74,6 +74,9 @@ class GameSaveMySqlMigrationIntegrationTest {
     void legacySchemaWithoutFlywayHistoryRequiresExplicitV8Baseline() throws Exception {
         withDatabase("gamesave_legacy_", databaseUrl -> {
             initializeFileSchema(databaseUrl);
+            String existingApiKeyHash = repeat("d", 64);
+            jdbc(databaseUrl).update("INSERT INTO file_app(app_id,app_name,api_key_hash,scopes,quota_bytes,status) "
+                    + "VALUES('game-save','既有配置',?,'READ',987654321,1)", existingApiKeyHash);
             executeScript(databaseUrl, "docs/modules/gamesave/schema.sql");
             JdbcTemplate jdbc = jdbc(databaseUrl);
             jdbc.update("INSERT INTO game_account(user_id,username,password_hash,quota_bytes,used_bytes,status) "
@@ -86,6 +89,10 @@ class GameSaveMySqlMigrationIntegrationTest {
             assertEquals(1, count(jdbc, "SELECT COUNT(*) FROM game_account WHERE user_id='manual-user'"));
 
             executeScript(databaseUrl, "docs/modules/gamesave/migrate-legacy-non-flyway.sql");
+            assertEquals(existingApiKeyHash, jdbc.queryForObject(
+                    "SELECT api_key_hash FROM file_app WHERE app_id='game-save'", String.class));
+            assertEquals(987654321L, jdbc.queryForObject(
+                    "SELECT quota_bytes FROM file_app WHERE app_id='game-save'", Long.class).longValue());
             Flyway legacy = Flyway.configure().dataSource(databaseUrl, username, password)
                     .locations("classpath:db/migration")
                     .baselineVersion(MigrationVersion.fromVersion("8"))
@@ -103,6 +110,23 @@ class GameSaveMySqlMigrationIntegrationTest {
             assertEquals(1, count(jdbc, "SELECT COUNT(*) FROM information_schema.columns "
                     + "WHERE table_schema=DATABASE() AND table_name='game_snapshot_file' "
                     + "AND column_name='relative_path_hash'"));
+        });
+    }
+
+    @Test
+    void unrelatedFlywayHistoryDoesNotAuthorizeLegacyGameSaveSchema() throws Exception {
+        withDatabase("gamesave_unrelated_history_", databaseUrl -> {
+            initializeFileSchema(databaseUrl);
+            Flyway.configure().dataSource(databaseUrl, username, password)
+                    .baselineVersion(MigrationVersion.fromVersion("0"))
+                    .baselineDescription("其他模块人工基线")
+                    .load().baseline();
+            executeScript(databaseUrl, "docs/modules/gamesave/schema.sql");
+
+            DriverManagerDataSource dataSource = new DriverManagerDataSource(databaseUrl, username, password);
+            FlywayException refused = assertThrows(FlywayException.class,
+                    () -> GameSaveFlywaySafetyConfiguration.assertSafeToMigrate(dataSource));
+            assertTrue(refused.getMessage().contains("没有可验证的 GameSave 迁移链"));
         });
     }
 

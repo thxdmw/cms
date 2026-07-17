@@ -18,16 +18,16 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 
 ## 无 Flyway 历史的旧数据库
 
-CMS 启动时如果发现任一 `game_*` 表存在但没有 `flyway_schema_history`，会直接拒绝迁移并输出操作提示。禁止通过 `baseline-on-migrate` 自动猜测这种数据库的版本，因为历史 `schema.sql` 可能同时含有不同迁移阶段的列和索引。
+CMS 启动时如果发现任一 GameSave 表存在，但 `flyway_schema_history` 中没有成功的 GameSave V1 迁移、可逐条验证的早期 V2～V8 迁移链，或明确的“旧 GameSave V8 人工基线”，会直接拒绝迁移并输出操作提示。仅存在其他模块创建的 Flyway 历史表或普通 baseline 记录不能绕过保护。禁止通过 `baseline-on-migrate` 自动猜测这种数据库的版本，因为历史 `schema.sql` 可能同时含有不同迁移阶段的列和索引。
 
 管理员必须按以下顺序处理：
 
 1. 停止全部 CMS 实例并完整备份数据库。
 2. 在备份副本上执行 `docs/modules/gamesave/migrate-legacy-non-flyway.sql`，确认数据行数和配额未变化。
-3. 使用与项目一致的 Flyway 7.15 对该库执行 `baseline`，明确设置 `baselineVersion=8`；不能使用默认版本。
+3. 使用与项目一致的 Flyway 7.15 对该库执行 `baseline`，明确设置 `baselineVersion=8` 和 `baselineDescription=旧 GameSave V8 人工基线`；不能使用默认版本或其他描述。
 4. 重新启动 CMS，让 Flyway 执行校验，并完成一次上传、下载、冲突和恢复验收。
 
-该专用脚本可重复执行，负责补齐 V4/V5/V6/V7/V8 所需结构和文件策略，但不会自行创建或伪造 Flyway 历史表。
+该专用脚本可重复执行，负责补齐 V4/V5/V6/V7/V8 所需结构和文件策略，但不会自行创建或伪造 Flyway 历史表。已有 `game-save` 文件应用的 `api_key_hash` 和 `quota_bytes` 会原样保留。
 
 ## 认证与设备
 
@@ -60,5 +60,6 @@ CMS 启动时如果发现任一 `game_*` 表存在但没有 `flyway_schema_histo
 
 - 普通 `mvn test` 执行单元、契约和 Spring 上下文测试。
 - `.github/workflows/gamesave-integration.yml` 在 `main/master/dev` 推送、PR 或手动触发时启动 MySQL 5.7、Redis 和 MinIO。
-- 目标环境测试覆盖注册、登录、Redis 限流键、缺失对象检查、上传、快照提交、HEAD、预签名下载、快照删除、对象清理、配额恢复和游戏后台清理。
-- 迁移测试分别验证空库 `V1 → V8`、带真实旧数据的 `V6 → V8`，以及“历史 schema、无 Flyway 历史”先拒绝自动升级、执行专用脚本和 V8 baseline 后保留数据的路径。
+- 目标环境测试覆盖注册、登录、Redis 限流键、缺失对象检查、上传、真正并发的双设备快照提交、HEAD、预签名下载、快照删除、对象清理、配额恢复和游戏后台清理。
+- 真实 MySQL 行锁测试覆盖对象触碰/孤儿抢占、快照引用/删除抢占、清理完成/重新激活，以及过期租约的双 Worker 认领。
+- 迁移测试分别验证空库 `V1 → V8`、带真实旧数据的 `V6 → V8`、“历史 schema、无 Flyway 历史”先拒绝自动升级、执行专用脚本和 V8 baseline 后保留数据，以及既有文件应用凭据和配额不被覆盖。
