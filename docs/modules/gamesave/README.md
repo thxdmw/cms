@@ -16,6 +16,19 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 
 > `schema.sql` 用于全新环境，含有建表前清理语句。已有 GameSave 数据的生产环境禁止直接执行它；启动 CMS 时由 `db/migration/V1...V8` 自动执行增量迁移。V7 会幂等写入 `game-save / GAME_SAVE_OBJECT / save-object` 文件策略，V8 会为游戏清理任务增加租约并把孤儿对象索引切换到 `update_time`。
 
+## 无 Flyway 历史的旧数据库
+
+CMS 启动时如果发现任一 `game_*` 表存在但没有 `flyway_schema_history`，会直接拒绝迁移并输出操作提示。禁止通过 `baseline-on-migrate` 自动猜测这种数据库的版本，因为历史 `schema.sql` 可能同时含有不同迁移阶段的列和索引。
+
+管理员必须按以下顺序处理：
+
+1. 停止全部 CMS 实例并完整备份数据库。
+2. 在备份副本上执行 `docs/modules/gamesave/migrate-legacy-non-flyway.sql`，确认数据行数和配额未变化。
+3. 使用与项目一致的 Flyway 7.15 对该库执行 `baseline`，明确设置 `baselineVersion=8`；不能使用默认版本。
+4. 重新启动 CMS，让 Flyway 执行校验，并完成一次上传、下载、冲突和恢复验收。
+
+该专用脚本可重复执行，负责补齐 V4/V5/V6/V7/V8 所需结构和文件策略，但不会自行创建或伪造 Flyway 历史表。
+
 ## 认证与设备
 
 - 注册与登录：`POST /api/game-save/v1/auth/register`、`POST /api/game-save/v1/auth/login`，请求体包含 `username`、`password`、`deviceId`、`deviceName`。
@@ -48,4 +61,4 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 - 普通 `mvn test` 执行单元、契约和 Spring 上下文测试。
 - `.github/workflows/gamesave-integration.yml` 在 `main/master/dev` 推送、PR 或手动触发时启动 MySQL 5.7、Redis 和 MinIO。
 - 目标环境测试覆盖注册、登录、Redis 限流键、缺失对象检查、上传、快照提交、HEAD、预签名下载、快照删除、对象清理、配额恢复和游戏后台清理。
-- 迁移测试分别验证空库 `V1 → V8`，以及带账号、设备、游戏、快照、对象、HEAD、配额和清理任务旧数据的 `V6 → V8` 升级。
+- 迁移测试分别验证空库 `V1 → V8`、带真实旧数据的 `V6 → V8`，以及“历史 schema、无 Flyway 历史”先拒绝自动升级、执行专用脚本和 V8 baseline 后保留数据的路径。

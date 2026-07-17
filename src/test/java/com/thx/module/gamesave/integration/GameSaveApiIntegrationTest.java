@@ -13,6 +13,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -51,6 +52,7 @@ class GameSaveApiIntegrationTest {
     @Autowired private StringRedisTemplate redisTemplate;
     @Autowired private GameObjectCleanupService objectCleanupService;
     @Autowired private GameCleanupService gameCleanupService;
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void clearRateLimitKeys() {
@@ -113,7 +115,8 @@ class GameSaveApiIntegrationTest {
 
         String secondCommit = "{\"expectedHeadSnapshotId\":\"" + firstSnapshot
                 + "\",\"triggerType\":\"MANUAL\",\"description\":\"empty\",\"files\":[]}";
-        authorized(post(API + "/games/" + gameId + "/snapshots"), token, secondCommit, 201);
+        JsonNode second = authorized(post(API + "/games/" + gameId + "/snapshots"), token, secondCommit, 201);
+        String secondSnapshot = second.at("/data/snapshotId").asText();
         authorized(delete(API + "/games/" + gameId + "/snapshots/" + firstSnapshot), token, null, 200);
         assertEquals(content.length, authorized(get(API + "/account/quota"), token, null, 200)
                 .at("/data/usedBytes").asLong());
@@ -121,11 +124,54 @@ class GameSaveApiIntegrationTest {
         assertEquals(0L, authorized(get(API + "/account/quota"), token, null, 200)
                 .at("/data/usedBytes").asLong());
 
+        MockMultipartFile reuploadedFile = new MockMultipartFile(
+                "file", "save.dat", "application/octet-stream", content);
+        JsonNode reuploaded = json(mockMvc.perform(multipart(API + "/objects")
+                        .file(reuploadedFile).param("sha256", hash).param("size", String.valueOf(content.length))
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+        assertEquals(objectId, reuploaded.at("/data/objectId").asText());
+
+        String secondDeviceId = "device-second-" + suffix;
+        JsonNode secondDeviceLogin = json(mockMvc.perform(post(API + "/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AuthRequest(username, password, secondDeviceId, "第二台集成设备"))))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        String secondToken = secondDeviceLogin.at("/data/deviceToken").asText();
+
+        String winningCommit = "{\"expectedHeadSnapshotId\":\"" + secondSnapshot
+                + "\",\"triggerType\":\"MANUAL\",\"description\":\"device-one\",\"files\":[{"
+                + "\"path\":\"root1/save.dat\",\"sha256\":\"" + hash + "\",\"size\":"
+                + content.length + "}]}";
+        authorized(post(API + "/games/" + gameId + "/snapshots"), token, winningCommit, 201);
+        String losingCommit = "{\"expectedHeadSnapshotId\":\"" + secondSnapshot
+                + "\",\"triggerType\":\"MANUAL\",\"description\":\"device-two\",\"files\":[]}";
+        JsonNode conflict = authorized(post(API + "/games/" + gameId + "/snapshots"),
+                secondToken, losingCommit, 409);
+        assertEquals("SYNC_CONFLICT", conflict.path("code").asText());
+
+        authorized(delete(API + "/devices/" + secondDeviceId), token, null, 200);
+        mockMvc.perform(get(API + "/games").header("Authorization", "Bearer " + secondToken))
+                .andExpect(status().isUnauthorized());
+
         authorized(delete(API + "/games/" + gameId), token, null, 200);
         for (int attempt = 0; attempt < 10 && gameCleanupService.cleanupRunnableTasks() > 0; attempt++) {
             // 每批推进一次游标，直到任务完成。
         }
         assertTrue(authorized(get(API + "/games"), token, null, 200).path("data").isEmpty());
+        assertEquals(1, objectCleanupService.cleanupDeletingObjects());
+        assertEquals(0L, authorized(get(API + "/account/quota"), token, null, 200)
+                .at("/data/usedBytes").asLong());
+
+        jdbcTemplate.update("UPDATE game_device SET token_expire_time=DATE_SUB(NOW(),INTERVAL 1 MINUTE) "
+                + "WHERE device_id=?", deviceId);
+        mockMvc.perform(get(API + "/games")
+                        .header("Authorization", "Bearer " + token)
+                        .header("X-Request-ID", "integration-expired-token"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .header().string("X-Request-ID", "integration-expired-token"));
     }
 
     @Test

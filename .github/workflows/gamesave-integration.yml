@@ -9,6 +9,7 @@ on:
       - 'src/main/resources/db/migration/**'
       - 'src/test/java/com/thx/module/gamesave/**'
       - 'docs/modules/file/schema.sql'
+      - 'docs/modules/gamesave/**'
       - '.github/workflows/gamesave-integration.yml'
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'src/main/resources/db/migration/**'
       - 'src/test/java/com/thx/module/gamesave/**'
       - 'docs/modules/file/schema.sql'
+      - 'docs/modules/gamesave/**'
       - '.github/workflows/gamesave-integration.yml'
 
 permissions:
@@ -57,7 +59,7 @@ jobs:
           docker run --detach --name gamesave-minio --publish 9000:9000 \
             --env MINIO_ROOT_USER=gamesave \
             --env MINIO_ROOT_PASSWORD=gamesave-secret \
-            minio/minio:latest server /data
+            quay.io/minio/minio:RELEASE.2025-09-06T17-38-46Z server /data
           for attempt in {1..30}; do
             if curl --fail --silent http://127.0.0.1:9000/minio/health/live > /dev/null; then
               exit 0

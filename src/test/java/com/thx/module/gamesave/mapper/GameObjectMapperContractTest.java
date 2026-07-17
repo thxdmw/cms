@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,5 +38,12 @@ class GameObjectMapperContractTest {
         Method touch = GameObjectMapper.class.getMethod("touchActiveObject", Long.class, String.class);
         String touchSql = String.join(" ", touch.getAnnotation(Update.class).value()).toLowerCase();
         assertTrue(touchSql.contains("update_time = now()"), "复用 ACTIVE 对象必须刷新活跃时间");
+
+        Method batchTouch = GameObjectMapper.class.getMethod(
+                "touchUnreferencedActiveObjects", String.class, List.class);
+        String batchSql = String.join(" ", batchTouch.getAnnotation(Update.class).value()).toLowerCase();
+        assertTrue(batchSql.contains("reference_count = 0"), "批量 touch 只能处理零引用对象");
+        assertTrue(batchSql.contains("interval 10 minute"), "近期已 touch 对象不应重复更新");
+        assertTrue(batchSql.contains("<foreach"), "check-missing 必须使用批量 UPDATE");
     }
 }

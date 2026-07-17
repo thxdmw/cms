@@ -5,6 +5,7 @@ import com.thx.module.file.service.FileSystemService;
 import com.thx.module.file.vo.FileInfoResult;
 import com.thx.module.file.vo.FileUploadResult;
 import com.thx.module.gamesave.context.GameCallerContext;
+import com.thx.module.gamesave.dto.ObjectDescriptor;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameObjectMapper;
 import com.thx.module.gamesave.model.GameObject;
@@ -19,6 +20,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Date;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -154,6 +156,46 @@ class GameObjectServiceImplTest {
         verify(gameQuotaService, never()).reserve(anyString(), anyLong());
         verify(fileSystemService, never()).upload(any(), anyString(), anyString(), any());
         verify(gameObjectMapper).touchActiveObject(7L, "user-1");
+    }
+
+    @Test
+    void findMissingShouldBatchTouchOnlyUnreferencedObjectsAndRecheckState() {
+        ObjectDescriptor first = new ObjectDescriptor(repeat('a', 64), 10L);
+        ObjectDescriptor second = new ObjectDescriptor(repeat('b', 64), 20L);
+        GameObject referenced = new GameObject().setId(1L).setSha256(first.getSha256())
+                .setSize(10L).setReferenceCount(2L).setStatus("ACTIVE");
+        GameObject unreferenced = new GameObject().setId(2L).setSha256(second.getSha256())
+                .setSize(20L).setReferenceCount(0L).setStatus("ACTIVE");
+        when(gameObjectMapper.selectActiveByDescriptors(eq("user-1"), any()))
+                .thenReturn(java.util.Arrays.asList(referenced, unreferenced))
+                .thenReturn(java.util.Arrays.asList(referenced, unreferenced));
+
+        List<ObjectDescriptor> missing = service.findMissing(java.util.Arrays.asList(first, second), caller);
+
+        assertEquals(0, missing.size());
+        verify(gameObjectMapper).touchUnreferencedActiveObjects("user-1", java.util.Collections.singletonList(2L));
+        verify(gameObjectMapper, never()).touchActiveObject(1L, "user-1");
+        verify(gameObjectMapper, never()).touchActiveObject(2L, "user-1");
+        verify(gameObjectMapper, org.mockito.Mockito.times(2))
+                .selectActiveByDescriptors(eq("user-1"), any());
+    }
+
+    @Test
+    void findMissingShouldReportObjectLostToConcurrentOrphanClaim() {
+        ObjectDescriptor descriptor = new ObjectDescriptor(repeat('c', 64), 30L);
+        GameObject candidate = new GameObject().setId(3L).setSha256(descriptor.getSha256())
+                .setSize(30L).setReferenceCount(0L).setStatus("ACTIVE");
+        when(gameObjectMapper.selectActiveByDescriptors(eq("user-1"), any()))
+                .thenReturn(java.util.Collections.singletonList(candidate))
+                .thenReturn(java.util.Collections.emptyList());
+
+        List<ObjectDescriptor> missing = service.findMissing(
+                java.util.Collections.singletonList(descriptor), caller);
+
+        assertEquals(1, missing.size());
+        assertEquals(descriptor.getSha256(), missing.get(0).getSha256());
+        verify(gameObjectMapper).touchUnreferencedActiveObjects(
+                "user-1", java.util.Collections.singletonList(3L));
     }
 
     @Test

@@ -58,6 +58,16 @@ public interface GameObjectMapper extends BaseMapper<GameObject> {
             + "WHERE id = #{id} AND user_id = #{userId} AND status = 'ACTIVE'")
     int touchActiveObject(@Param("id") Long id, @Param("userId") String userId);
 
+    /** 分批刷新较久未触碰的零引用对象，避免 check-missing 对每个文件执行一条 UPDATE。 */
+    @Update("<script>"
+            + "UPDATE game_object SET update_time = NOW() WHERE user_id = #{userId} "
+            + "AND status = 'ACTIVE' AND reference_count = 0 "
+            + "AND update_time &lt; DATE_SUB(NOW(), INTERVAL 10 MINUTE) AND id IN "
+            + "<foreach item='id' collection='ids' open='(' separator=',' close=')'>#{id}</foreach>"
+            + "</script>")
+    int touchUnreferencedActiveObjects(@Param("userId") String userId,
+                                       @Param("ids") List<Long> ids);
+
     @Select("SELECT * FROM game_object WHERE user_id = #{userId} AND sha256 = #{sha256} AND size = #{size} LIMIT 1")
     GameObject selectAnyByDescriptor(@Param("userId") String userId,
                                      @Param("sha256") String sha256,

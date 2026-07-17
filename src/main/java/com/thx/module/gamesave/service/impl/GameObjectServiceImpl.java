@@ -62,6 +62,7 @@ public class GameObjectServiceImpl implements GameObjectService {
             Arrays.asList("UPLOAD", "READ", "DELETE", "LIST", "PRESIGN"));
     // 单次请求允许校验/解析的内容对象上限，避免无界列表触发超大批量查询或拖垮数据库。
     private static final int MAX_CHECK_OBJECTS = 5000;
+    private static final int TOUCH_BATCH_SIZE = 300;
 
     private final GameObjectMapper gameObjectMapper;
     private final FileSystemService fileSystemService;
@@ -93,13 +94,24 @@ public class GameObjectServiceImpl implements GameObjectService {
             return missing;
         }
 
-        // 一次批量查询替代逐个对象的判重往返。
-        Set<String> owned = new LinkedHashSet<>();
-        for (GameObject object : gameObjectMapper.selectActiveByDescriptors(
-                caller.getUserId(), new ArrayList<>(uniqueObjects.values()))) {
-            if (gameObjectMapper.touchActiveObject(object.getId(), caller.getUserId()) == 1) {
-                owned.add(normalizeHash(object.getSha256()) + ":" + object.getSize());
+        List<ObjectDescriptor> descriptors = new ArrayList<>(uniqueObjects.values());
+        List<GameObject> firstPass = gameObjectMapper.selectActiveByDescriptors(caller.getUserId(), descriptors);
+        List<Long> unreferencedIds = new ArrayList<>();
+        for (GameObject object : firstPass) {
+            if (object.getReferenceCount() == null || object.getReferenceCount() == 0L) {
+                unreferencedIds.add(object.getId());
             }
+        }
+        for (int start = 0; start < unreferencedIds.size(); start += TOUCH_BATCH_SIZE) {
+            int end = Math.min(start + TOUCH_BATCH_SIZE, unreferencedIds.size());
+            gameObjectMapper.touchUnreferencedActiveObjects(
+                    caller.getUserId(), unreferencedIds.subList(start, end));
+        }
+
+        // touch 与孤儿抢占可能并发，二次批量查询只把最终仍为 ACTIVE 的对象视为已拥有。
+        Set<String> owned = new LinkedHashSet<>();
+        for (GameObject object : gameObjectMapper.selectActiveByDescriptors(caller.getUserId(), descriptors)) {
+            owned.add(normalizeHash(object.getSha256()) + ":" + object.getSize());
         }
         for (ObjectDescriptor descriptor : uniqueObjects.values()) {
             if (!owned.contains(descriptor.getSha256() + ":" + descriptor.getSize())) {

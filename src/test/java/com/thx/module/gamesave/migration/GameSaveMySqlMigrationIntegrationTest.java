@@ -1,6 +1,8 @@
 package com.thx.module.gamesave.migration;
 
+import com.thx.module.gamesave.config.GameSaveFlywaySafetyConfiguration;
 import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.FlywayException;
 import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
@@ -16,6 +18,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** 在 MySQL 5.7 上执行真实的空库迁移和 V6 旧数据升级。 */
 @EnabledIfSystemProperty(named = "gamesave.integration", matches = "true")
@@ -66,6 +70,42 @@ class GameSaveMySqlMigrationIntegrationTest {
         });
     }
 
+    @Test
+    void legacySchemaWithoutFlywayHistoryRequiresExplicitV8Baseline() throws Exception {
+        withDatabase("gamesave_legacy_", databaseUrl -> {
+            initializeFileSchema(databaseUrl);
+            executeScript(databaseUrl, "docs/modules/gamesave/schema.sql");
+            JdbcTemplate jdbc = jdbc(databaseUrl);
+            jdbc.update("INSERT INTO game_account(user_id,username,password_hash,quota_bytes,used_bytes,status) "
+                    + "VALUES('manual-user','manual-name','hash',10737418240,1234,1)");
+
+            DriverManagerDataSource dataSource = new DriverManagerDataSource(databaseUrl, username, password);
+            FlywayException refused = assertThrows(FlywayException.class,
+                    () -> GameSaveFlywaySafetyConfiguration.assertSafeToMigrate(dataSource));
+            assertTrue(refused.getMessage().contains("拒绝自动猜测版本"));
+            assertEquals(1, count(jdbc, "SELECT COUNT(*) FROM game_account WHERE user_id='manual-user'"));
+
+            executeScript(databaseUrl, "docs/modules/gamesave/migrate-legacy-non-flyway.sql");
+            Flyway legacy = Flyway.configure().dataSource(databaseUrl, username, password)
+                    .locations("classpath:db/migration")
+                    .baselineVersion(MigrationVersion.fromVersion("8"))
+                    .baselineDescription("旧 GameSave V8 人工基线")
+                    .load();
+            legacy.baseline();
+            GameSaveFlywaySafetyConfiguration.assertSafeToMigrate(dataSource);
+            legacy.migrate();
+
+            assertEquals(1234L, jdbc.queryForObject(
+                    "SELECT used_bytes FROM game_account WHERE user_id='manual-user'", Long.class).longValue());
+            assertEquals(1, count(jdbc, "SELECT COUNT(*) FROM information_schema.columns "
+                    + "WHERE table_schema=DATABASE() AND table_name='game_device' "
+                    + "AND column_name='token_expire_time'"));
+            assertEquals(1, count(jdbc, "SELECT COUNT(*) FROM information_schema.columns "
+                    + "WHERE table_schema=DATABASE() AND table_name='game_snapshot_file' "
+                    + "AND column_name='relative_path_hash'"));
+        });
+    }
+
     private void insertV6Data(JdbcTemplate jdbc) {
         String hash = repeat("a", 64);
         jdbc.update("INSERT INTO game_account(user_id,username,password_hash,quota_bytes,used_bytes,status) "
@@ -90,15 +130,21 @@ class GameSaveMySqlMigrationIntegrationTest {
     }
 
     private void initializeFileSchema(String databaseUrl) throws Exception {
+        executeScript(databaseUrl, "docs/modules/file/schema.sql");
+    }
+
+    private void executeScript(String databaseUrl, String path) throws Exception {
         try (Connection connection = DriverManager.getConnection(databaseUrl, username, password)) {
-            ScriptUtils.executeSqlScript(connection, new FileSystemResource("docs/modules/file/schema.sql"));
+            ScriptUtils.executeSqlScript(connection, new FileSystemResource(path));
         }
     }
 
     private Flyway flyway(String databaseUrl, MigrationVersion target) {
         org.flywaydb.core.api.configuration.FluentConfiguration configuration = Flyway.configure()
                 .dataSource(databaseUrl, username, password)
-                .locations("classpath:db/migration");
+                .locations("classpath:db/migration")
+                .baselineOnMigrate(true)
+                .baselineVersion(MigrationVersion.fromVersion("0"));
         if (target != null) configuration.target(target);
         return configuration.load();
     }
