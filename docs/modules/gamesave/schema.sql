@@ -81,7 +81,8 @@ CREATE TABLE `game_object` (
     UNIQUE KEY `uk_game_object_object_id` (`object_id`),
     UNIQUE KEY `uk_game_object_user_hash_size` (`user_id`, `sha256`, `size`),
     UNIQUE KEY `uk_game_object_file_id` (`file_id`),
-    KEY `idx_game_object_user_status` (`user_id`, `status`)
+    KEY `idx_game_object_user_status` (`user_id`, `status`),
+    KEY `idx_game_object_cleanup` (`status`, `reference_count`, `update_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户级内容寻址对象';
 
 CREATE TABLE `game_snapshot` (
@@ -127,6 +128,27 @@ CREATE TABLE `game_sync_head` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_game_sync_head_user_game` (`user_id`, `game_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='游戏同步 HEAD，使用 CAS 推进';
+
+CREATE TABLE `game_cleanup_task` (
+    `id` bigint(20) NOT NULL AUTO_INCREMENT,
+    `task_id` varchar(64) NOT NULL,
+    `user_id` varchar(64) NOT NULL,
+    `game_id` varchar(64) NOT NULL,
+    `status` varchar(32) NOT NULL DEFAULT 'PENDING',
+    `cursor` bigint(20) NOT NULL DEFAULT 0,
+    `retry_count` int(11) NOT NULL DEFAULT 0,
+    `last_error` varchar(1000) DEFAULT NULL,
+    `worker_id` varchar(128) DEFAULT NULL,
+    `lease_until` datetime DEFAULT NULL,
+    `last_heartbeat_time` datetime DEFAULT NULL,
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_game_cleanup_task_id` (`task_id`),
+    UNIQUE KEY `uk_game_cleanup_user_game` (`user_id`, `game_id`),
+    KEY `idx_game_cleanup_status_update` (`status`, `update_time`),
+    KEY `idx_game_cleanup_lease` (`status`, `lease_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='游戏异步清理租约任务';
 
 -- GameSave 只通过同 JVM 内部调用使用 module.file。默认写入不可逆的 sentinel hash，
 -- 不存在配套明文 API Key，避免公开仓库种子数据意外开放 /api/v1/files。

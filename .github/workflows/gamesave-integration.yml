@@ -31,15 +31,6 @@ jobs:
         options: >-
           --health-cmd="redis-cli ping"
           --health-interval=10s --health-timeout=5s --health-retries=10
-      minio:
-        image: minio/minio:latest
-        env:
-          MINIO_ROOT_USER: gamesave
-          MINIO_ROOT_PASSWORD: gamesave-secret
-        ports: ['9000:9000']
-        options: >-
-          --health-cmd="curl -f http://localhost:9000/minio/health/live"
-          --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -47,6 +38,25 @@ jobs:
           distribution: temurin
           java-version: '8'
           cache: maven
+      - name: 初始化文件模块数据库表
+        run: >-
+          docker run --rm --network host -i mysql:5.7
+          mysql --host=127.0.0.1 --port=3306 --user=root --password=root cms
+          < docs/modules/file/schema.sql
+      - name: 启动并验证 MinIO
+        run: |
+          docker run --detach --name gamesave-minio --publish 9000:9000 \
+            --env MINIO_ROOT_USER=gamesave \
+            --env MINIO_ROOT_PASSWORD=gamesave-secret \
+            minio/minio:latest server /data
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/live > /dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs gamesave-minio
+          exit 1
       - name: 迁移与 GameSave 集成测试
         env:
           SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/cms?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC
@@ -54,4 +64,10 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: root
           SPRING_REDIS_HOST: 127.0.0.1
           SPRING_REDIS_PORT: 6379
+          MINIO_ENDPOINT: http://127.0.0.1:9000
+          MINIO_PUBLIC_DOMAIN: http://127.0.0.1:9000
+          MINIO_ACCESS_KEY: gamesave
+          MINIO_SECRET_KEY: gamesave-secret
+          CMS_FILE_SYSTEM_STORAGE_VALIDATE_ON_STARTUP: 'true'
+          CMS_FILE_SYSTEM_STORAGE_AUTO_CREATE_BUCKET: 'true'
         run: mvn -B -Dgamesave.integration=true test

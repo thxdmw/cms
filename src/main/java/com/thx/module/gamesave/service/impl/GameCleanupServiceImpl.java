@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -18,6 +19,7 @@ public class GameCleanupServiceImpl implements GameCleanupService {
     private final GameCleanupTaskMapper taskMapper;
     private final GameCleanupBatchService batchService;
     private final GameSaveProperties properties;
+    private final String workerId = "gamesave-" + UUID.randomUUID();
 
     @Override
     public int cleanupRunnableTasks() {
@@ -25,14 +27,18 @@ public class GameCleanupServiceImpl implements GameCleanupService {
         List<GameCleanupTask> tasks = taskMapper.selectRunnable(limit);
         int processed = 0;
         for (GameCleanupTask task : tasks) {
-            if (taskMapper.claim(task.getTaskId()) != 1) {
+            int leaseSeconds = Math.max(30, properties.getGameCleanupLeaseSeconds());
+            if (taskMapper.claim(task.getTaskId(), workerId, leaseSeconds) != 1) {
                 continue;
             }
             try {
-                batchService.process(task.getTaskId());
+                batchService.process(task.getTaskId(), workerId);
                 processed++;
             } catch (RuntimeException failure) {
-                taskMapper.fail(task.getTaskId(), safeMessage(failure));
+                if (taskMapper.fail(task.getTaskId(), workerId, safeMessage(failure)) != 1) {
+                    log.error("GameSave 游戏清理任务失败状态写入冲突，taskId={}, workerId={}",
+                            task.getTaskId(), workerId);
+                }
                 log.warn("GameSave 游戏清理批次失败，taskId={}", task.getTaskId(), failure);
             }
         }

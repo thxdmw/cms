@@ -25,6 +25,9 @@ public class GameCleanupTask {
     private Long cursor;
     private Integer retryCount;
     private String lastError;
+    private String workerId;
+    private Date leaseUntil;
+    private Date lastHeartbeatTime;
     private Date createTime;
     private Date updateTime;
 }

@@ -50,7 +50,7 @@ public interface GameObjectMapper extends BaseMapper<GameObject> {
                                      @Param("sha256") String sha256,
                                      @Param("size") long size);
 
-    @Update("UPDATE game_object SET file_id = #{newFileId}, reference_count = 0, status = 'ACTIVE' "
+    @Update("UPDATE game_object SET file_id = #{newFileId}, reference_count = 0, status = 'ACTIVE', update_time = NOW() "
             + "WHERE id = #{id} AND user_id = #{userId} AND status = 'DELETED'")
     int reactivateDeleted(@Param("id") Long id,
                           @Param("userId") String userId,
@@ -60,7 +60,7 @@ public interface GameObjectMapper extends BaseMapper<GameObject> {
     List<GameObject> selectDeletingBatch(@Param("limit") int limit);
 
     @Select("SELECT * FROM game_object WHERE status = 'ACTIVE' AND reference_count = 0 "
-            + "AND create_time < #{threshold} ORDER BY create_time ASC, id ASC LIMIT #{limit}")
+            + "AND update_time < #{threshold} ORDER BY update_time ASC, id ASC LIMIT #{limit}")
     List<GameObject> selectOrphanCandidates(@Param("threshold") java.util.Date threshold,
                                             @Param("limit") int limit);
 

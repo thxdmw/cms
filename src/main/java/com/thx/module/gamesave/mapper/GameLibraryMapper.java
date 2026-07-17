@@ -14,6 +14,9 @@ public interface GameLibraryMapper extends BaseMapper<GameLibrary> {
     @Select("SELECT * FROM game_library WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1 LIMIT 1")
     GameLibrary selectActiveOwned(@Param("gameId") String gameId, @Param("userId") String userId);
 
+    @Select("SELECT * FROM game_library WHERE game_id = #{gameId} AND user_id = #{userId} LIMIT 1")
+    GameLibrary selectOwnedIncludingDeleted(@Param("gameId") String gameId, @Param("userId") String userId);
+
     /** 查询指定用户仍处于有效状态的游戏，用于快照保留策略。 */
     @Select("SELECT * FROM game_library WHERE game_id = #{gameId} AND user_id = #{userId} AND status = 1 LIMIT 1")
     GameLibrary selectOwnedForRetention(@Param("gameId") String gameId, @Param("userId") String userId);

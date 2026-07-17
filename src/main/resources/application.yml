@@ -67,6 +67,9 @@ gamesave:
   orphan-object-hours: 24
   game-cleanup-snapshot-batch-size: 20
   game-cleanup-file-batch-size: 1000
+  game-cleanup-lease-seconds: 300
+  # 只有来自这些反向代理地址的请求才接受 X-Forwarded-For；默认不信任任何代理。
+  trusted-proxy-addresses: []
 
 #  日志配置
 logging:

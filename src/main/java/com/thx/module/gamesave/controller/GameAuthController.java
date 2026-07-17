@@ -4,6 +4,7 @@ import com.thx.common.annotation.AnonymousAccess;
 import com.thx.module.gamesave.dto.GameLoginRequest;
 import com.thx.module.gamesave.dto.GameLoginResult;
 import com.thx.module.gamesave.dto.GameRegisterRequest;
+import com.thx.module.gamesave.config.GameSaveProperties;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.service.GameAuthRateLimitService;
 import com.thx.module.gamesave.service.GameAuthService;
@@ -26,6 +27,7 @@ public class GameAuthController {
 
     private final GameAuthService gameAuthService;
     private final GameAuthRateLimitService rateLimitService;
+    private final GameSaveProperties properties;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -56,10 +58,21 @@ public class GameAuthController {
     }
 
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
+        String remoteAddress = normalizeIp(request.getRemoteAddr(), "unknown");
+        boolean trustedProxy = properties.getTrustedProxyAddresses().stream()
+                .map(String::trim)
+                .anyMatch(remoteAddress::equalsIgnoreCase);
+        String forwarded = trustedProxy ? request.getHeader("X-Forwarded-For") : null;
         if (forwarded != null && !forwarded.trim().isEmpty()) {
-            return forwarded.split(",", 2)[0].trim();
+            return normalizeIp(forwarded.split(",", 2)[0], remoteAddress);
         }
-        return request.getRemoteAddr();
+        return remoteAddress;
+    }
+
+    private String normalizeIp(String value, String fallback) {
+        if (value == null) return fallback;
+        String normalized = value.trim();
+        return normalized.length() >= 3 && normalized.length() <= 45
+                && normalized.matches("[0-9a-fA-F:.]+") ? normalized : fallback;
     }
 }

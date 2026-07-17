@@ -20,4 +20,6 @@ public class GameSaveProperties {
     private int orphanObjectHours = 24;
     private int gameCleanupSnapshotBatchSize = 20;
     private int gameCleanupFileBatchSize = 1000;
+    private int gameCleanupLeaseSeconds = 300;
+    private java.util.List<String> trustedProxyAddresses = new java.util.ArrayList<>();
 }
