@@ -27,5 +27,15 @@ class GameObjectMapperContractTest {
                 "孤儿扫描必须按最近上传/重新激活时间判断");
         assertTrue(!orphanSql.contains("create_time <"),
                 "孤儿扫描不得继续按最初创建时间判断");
+
+        Method claim = GameObjectMapper.class.getMethod(
+                "markOrphanDeleting", String.class, String.class, java.util.Date.class);
+        String claimSql = String.join(" ", claim.getAnnotation(Update.class).value()).toLowerCase();
+        assertTrue(claimSql.contains("update_time < #{threshold}"),
+                "孤儿对象最终抢占必须原子校验活跃时间阈值");
+
+        Method touch = GameObjectMapper.class.getMethod("touchActiveObject", Long.class, String.class);
+        String touchSql = String.join(" ", touch.getAnnotation(Update.class).value()).toLowerCase();
+        assertTrue(touchSql.contains("update_time = now()"), "复用 ACTIVE 对象必须刷新活跃时间");
     }
 }

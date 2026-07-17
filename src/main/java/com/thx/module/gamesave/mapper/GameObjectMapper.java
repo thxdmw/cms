@@ -45,6 +45,19 @@ public interface GameObjectMapper extends BaseMapper<GameObject> {
     int markDeletingIfUnreferenced(@Param("objectId") String objectId,
                                    @Param("userId") String userId);
 
+    /** 孤儿清理必须在最终原子抢占时再次校验活跃时间，避免旧查询结果覆盖刚被复用的对象。 */
+    @Update("UPDATE game_object SET status = 'DELETING' "
+            + "WHERE object_id = #{objectId} AND user_id = #{userId} "
+            + "AND status = 'ACTIVE' AND reference_count = 0 AND update_time < #{threshold}")
+    int markOrphanDeleting(@Param("objectId") String objectId,
+                           @Param("userId") String userId,
+                           @Param("threshold") java.util.Date threshold);
+
+    /** check-missing 或重复 put 命中 ACTIVE 对象时刷新最近使用时间。 */
+    @Update("UPDATE game_object SET update_time = NOW() "
+            + "WHERE id = #{id} AND user_id = #{userId} AND status = 'ACTIVE'")
+    int touchActiveObject(@Param("id") Long id, @Param("userId") String userId);
+
     @Select("SELECT * FROM game_object WHERE user_id = #{userId} AND sha256 = #{sha256} AND size = #{size} LIMIT 1")
     GameObject selectAnyByDescriptor(@Param("userId") String userId,
                                      @Param("sha256") String sha256,

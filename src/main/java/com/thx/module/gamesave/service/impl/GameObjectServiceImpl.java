@@ -97,7 +97,9 @@ public class GameObjectServiceImpl implements GameObjectService {
         Set<String> owned = new LinkedHashSet<>();
         for (GameObject object : gameObjectMapper.selectActiveByDescriptors(
                 caller.getUserId(), new ArrayList<>(uniqueObjects.values()))) {
-            owned.add(normalizeHash(object.getSha256()) + ":" + object.getSize());
+            if (gameObjectMapper.touchActiveObject(object.getId(), caller.getUserId()) == 1) {
+                owned.add(normalizeHash(object.getSha256()) + ":" + object.getSize());
+            }
         }
         for (ObjectDescriptor descriptor : uniqueObjects.values()) {
             if (!owned.contains(descriptor.getSha256() + ":" + descriptor.getSize())) {
@@ -123,6 +125,10 @@ public class GameObjectServiceImpl implements GameObjectService {
 
         GameObject existing = findAnyObject(caller.getUserId(), normalizedHash, expectedSize);
         if (existing != null && ACTIVE.equals(existing.getStatus())) {
+            if (gameObjectMapper.touchActiveObject(existing.getId(), caller.getUserId()) != 1) {
+                throw GameSaveException.conflict(
+                        "OBJECT_STATE_CHANGED", "相同内容对象的状态已变化，请重新检查缺失对象");
+            }
             return existing;
         }
         if (existing != null && DELETING.equals(existing.getStatus())) {

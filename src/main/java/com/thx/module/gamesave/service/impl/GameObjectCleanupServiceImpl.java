@@ -42,7 +42,7 @@ public class GameObjectCleanupServiceImpl implements GameObjectCleanupService {
                 threshold, properties.getObjectCleanupBatchSize());
         int claimed = 0;
         for (GameObject object : candidates) {
-            claimed += gameObjectMapper.markDeletingIfUnreferenced(object.getObjectId(), object.getUserId());
+            claimed += gameObjectMapper.markOrphanDeleting(object.getObjectId(), object.getUserId(), threshold);
         }
         return claimed;
     }

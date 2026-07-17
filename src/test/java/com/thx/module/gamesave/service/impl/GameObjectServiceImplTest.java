@@ -139,18 +139,21 @@ class GameObjectServiceImplTest {
         MockMultipartFile file = new MockMultipartFile(
                 "file", "save.dat", "application/octet-stream", content);
         GameObject existing = new GameObject()
+                .setId(7L)
                 .setObjectId("object-existing")
                 .setUserId("user-1")
                 .setSha256(hash)
                 .setSize((long) content.length)
                 .setStatus("ACTIVE");
         when(gameObjectMapper.selectAnyByDescriptor("user-1", hash, content.length)).thenReturn(existing);
+        when(gameObjectMapper.touchActiveObject(7L, "user-1")).thenReturn(1);
 
         GameObject actual = service.put(file, hash, content.length, caller);
 
         assertEquals(existing, actual);
         verify(gameQuotaService, never()).reserve(anyString(), anyLong());
         verify(fileSystemService, never()).upload(any(), anyString(), anyString(), any());
+        verify(gameObjectMapper).touchActiveObject(7L, "user-1");
     }
 
     @Test

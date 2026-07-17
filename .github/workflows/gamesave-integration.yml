@@ -2,11 +2,20 @@ name: GameSave 集成验证
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main, master, dev]
+    paths:
+      - 'src/main/java/com/thx/module/gamesave/**'
+      - 'src/main/resources/db/migration/**'
+      - 'src/test/java/com/thx/module/gamesave/**'
+      - 'docs/modules/file/schema.sql'
+      - '.github/workflows/gamesave-integration.yml'
   pull_request:
     paths:
       - 'src/main/java/com/thx/module/gamesave/**'
       - 'src/main/resources/db/migration/**'
       - 'src/test/java/com/thx/module/gamesave/**'
+      - 'docs/modules/file/schema.sql'
       - '.github/workflows/gamesave-integration.yml'
 
 permissions:

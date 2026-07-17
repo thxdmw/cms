@@ -26,7 +26,7 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 
 ## 后台清理安全
 
-- 内容对象重新上传或从 `DELETED` 激活时会刷新 `update_time`；零引用孤儿仅按最近活跃时间进入清理。
+- `check-missing` 或重复上传命中 `ACTIVE` 对象时会刷新 `update_time`，从 `DELETED` 激活时同样刷新；零引用孤儿的最终状态抢占会再次原子校验活跃时间阈值，旧查询结果不能覆盖刚被复用的对象。
 - 游戏删除任务使用 `worker_id + lease_until + last_heartbeat_time` 租约。CMS 在批次中崩溃后，租约到期的 `RUNNING` 任务可被其他实例重新认领。
 - 快照、游标、游戏和任务的关键状态更新都检查影响行数；幂等完成仅在数据库已处于目标状态时接受。
 
@@ -42,3 +42,10 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 | 配额 | `GET /account/quota` |
 | 设备管理 | `GET /devices`、`DELETE /devices/{deviceId}` |
 | 快照保留 | `GET/PUT /games/{gameId}/retention`、`POST /games/{gameId}/retention/cleanup` |
+
+## 自动化验证
+
+- 普通 `mvn test` 执行单元、契约和 Spring 上下文测试。
+- `.github/workflows/gamesave-integration.yml` 在 `main/master/dev` 推送、PR 或手动触发时启动 MySQL 5.7、Redis 和 MinIO。
+- 目标环境测试覆盖注册、登录、Redis 限流键、缺失对象检查、上传、快照提交、HEAD、预签名下载、快照删除、对象清理、配额恢复和游戏后台清理。
+- 迁移测试分别验证空库 `V1 → V8`，以及带账号、设备、游戏、快照、对象、HEAD、配额和清理任务旧数据的 `V6 → V8` 升级。
