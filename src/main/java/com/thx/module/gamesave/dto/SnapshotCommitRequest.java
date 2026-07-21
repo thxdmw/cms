@@ -10,5 +10,6 @@ public class SnapshotCommitRequest {
     private String expectedHeadSnapshotId;
     private String triggerType;
     private String description;
+    private List<SnapshotRootDescriptor> roots;
     private List<SnapshotFileDescriptor> files;
 }

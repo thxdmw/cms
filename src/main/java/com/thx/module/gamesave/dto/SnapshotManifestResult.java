@@ -20,5 +20,6 @@ public class SnapshotManifestResult {
     private final String description;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     private final Date createTime;
+    private final List<SnapshotRootResult> roots;
     private final List<SnapshotManifestFileResult> files;
 }

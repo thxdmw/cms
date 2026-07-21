@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.util.Date;
+import java.util.List;
 
 /** 面向时间线展示的轻量快照信息，不包含完整 Manifest。 */
 @Getter
@@ -20,10 +21,11 @@ public class SnapshotSummaryResult {
     private final int fileCount;
     private final long logicalSize;
     private final int changedFileCount;
+    private final List<SnapshotRootResult> roots;
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
     private final Date createTime;
 
-    public static SnapshotSummaryResult from(GameSnapshot snapshot) {
+    public static SnapshotSummaryResult from(GameSnapshot snapshot, List<SnapshotRootResult> roots) {
         return new SnapshotSummaryResult(
                 snapshot.getSnapshotId(),
                 snapshot.getParentSnapshotId(),
@@ -33,6 +35,7 @@ public class SnapshotSummaryResult {
                 snapshot.getFileCount(),
                 snapshot.getLogicalSize(),
                 snapshot.getChangedFileCount(),
+                roots,
                 snapshot.getCreateTime());
     }
 }

@@ -4,11 +4,13 @@ import com.thx.module.gamesave.context.GameCallerContext;
 import com.thx.module.gamesave.dto.SnapshotCommitRequest;
 import com.thx.module.gamesave.dto.SnapshotCommitResult;
 import com.thx.module.gamesave.dto.SnapshotFileDescriptor;
+import com.thx.module.gamesave.dto.SnapshotRootDescriptor;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameLibraryMapper;
 import com.thx.module.gamesave.mapper.GameObjectMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotFileMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotMapper;
+import com.thx.module.gamesave.mapper.GameSnapshotRootMapper;
 import com.thx.module.gamesave.mapper.GameSyncHeadMapper;
 import com.thx.module.gamesave.model.GameLibrary;
 import com.thx.module.gamesave.model.GameObject;
@@ -27,6 +29,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -45,6 +48,8 @@ class GameSnapshotServiceImplTest {
     @Mock
     private GameSnapshotFileMapper gameSnapshotFileMapper;
     @Mock
+    private GameSnapshotRootMapper gameSnapshotRootMapper;
+    @Mock
     private GameSyncHeadMapper gameSyncHeadMapper;
     @Mock
     private GameObjectMapper gameObjectMapper;
@@ -60,6 +65,7 @@ class GameSnapshotServiceImplTest {
                 gameLibraryMapper,
                 gameSnapshotMapper,
                 gameSnapshotFileMapper,
+                gameSnapshotRootMapper,
                 gameSyncHeadMapper,
                 gameObjectMapper,
                 gameObjectService);
@@ -126,6 +132,52 @@ class GameSnapshotServiceImplTest {
         verify(gameSnapshotFileMapper, never()).insert(any());
         verify(gameObjectMapper, never()).incrementReference(anyString(), anyString());
         verify(gameSyncHeadMapper, never()).advanceHeadCas(anyString(), anyString(), any(), anyString());
+    }
+
+    @Test
+    void unchangedFilesWithNewRootMetadataShouldCreateMetadataSnapshot() {
+        String hash = repeat('b', 64);
+        long size = 2048L;
+        GameLibrary game = new GameLibrary().setGameId("game-1").setUserId("user-1").setStatus(1);
+        GameSyncHead head = new GameSyncHead().setUserId("user-1").setGameId("game-1")
+                .setHeadSnapshotId("snapshot-100").setVersion(5L);
+        GameObject object = new GameObject().setObjectId("object-1").setUserId("user-1")
+                .setSha256(hash).setSize(size).setStatus("ACTIVE");
+        GameSnapshotFile parentFile = new GameSnapshotFile().setSnapshotId("snapshot-100")
+                .setRelativePath("root/save.dat").setObjectId("object-1").setSha256(hash).setSize(size);
+
+        SnapshotFileDescriptor file = new SnapshotFileDescriptor();
+        file.setPath("root/save.dat");
+        file.setSha256(hash);
+        file.setSize(size);
+        SnapshotRootDescriptor root = new SnapshotRootDescriptor();
+        root.setRootId("root");
+        root.setRootType("FILE");
+        root.setPathTemplate("%DOCUMENTS%\\My Games\\Example");
+        root.setSource("MANUAL");
+        root.setConfidence(100);
+        root.setIncludePatterns(Collections.emptyList());
+        root.setExcludePatterns(Collections.emptyList());
+        SnapshotCommitRequest request = new SnapshotCommitRequest();
+        request.setExpectedHeadSnapshotId("snapshot-100");
+        request.setTriggerType("MANUAL");
+        request.setFiles(Collections.singletonList(file));
+        request.setRoots(Collections.singletonList(root));
+
+        when(gameLibraryMapper.selectOne(any())).thenReturn(game);
+        when(gameSyncHeadMapper.selectOne(any())).thenReturn(head);
+        when(gameObjectService.requireOwnedObjects(any(), eq(caller)))
+                .thenReturn(Collections.singletonMap(hash + ":" + size, object));
+        when(gameSnapshotFileMapper.selectList(any())).thenReturn(Collections.singletonList(parentFile));
+        when(gameObjectMapper.incrementReference(anyString(), anyString())).thenReturn(1);
+        when(gameSyncHeadMapper.advanceHeadCas(anyString(), anyString(), any(), anyString())).thenReturn(1);
+
+        SnapshotCommitResult result = service.commit("game-1", request, caller);
+
+        assertTrue(result.isCreated());
+        assertEquals(0, result.getChangedFileCount());
+        verify(gameSnapshotRootMapper).insert(any());
+        verify(gameSnapshotMapper).insert(any());
     }
 
     @Test

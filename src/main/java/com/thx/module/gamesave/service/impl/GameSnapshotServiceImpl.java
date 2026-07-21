@@ -1,5 +1,6 @@
 package com.thx.module.gamesave.service.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.thx.common.util.UUIDUtil;
 import com.thx.module.gamesave.context.GameCallerContext;
@@ -8,17 +9,21 @@ import com.thx.module.gamesave.dto.ObjectDescriptor;
 import com.thx.module.gamesave.dto.SnapshotCommitRequest;
 import com.thx.module.gamesave.dto.SnapshotCommitResult;
 import com.thx.module.gamesave.dto.SnapshotFileDescriptor;
+import com.thx.module.gamesave.dto.SnapshotRootDescriptor;
+import com.thx.module.gamesave.dto.SnapshotRootResult;
 import com.thx.module.gamesave.dto.SyncHeadResult;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameLibraryMapper;
 import com.thx.module.gamesave.mapper.GameObjectMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotFileMapper;
 import com.thx.module.gamesave.mapper.GameSnapshotMapper;
+import com.thx.module.gamesave.mapper.GameSnapshotRootMapper;
 import com.thx.module.gamesave.mapper.GameSyncHeadMapper;
 import com.thx.module.gamesave.model.GameLibrary;
 import com.thx.module.gamesave.model.GameObject;
 import com.thx.module.gamesave.model.GameSnapshot;
 import com.thx.module.gamesave.model.GameSnapshotFile;
+import com.thx.module.gamesave.model.GameSnapshotRoot;
 import com.thx.module.gamesave.model.GameSyncHead;
 import com.thx.module.gamesave.service.GameObjectService;
 import com.thx.module.gamesave.service.GameSnapshotService;
@@ -39,6 +44,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.Collections;
+import java.util.regex.Pattern;
 
 /** GameSave 不可变快照事务实现。 */
 @Service
@@ -58,8 +65,12 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
                         .last("LIMIT " + safeLimit));
         List<com.thx.module.gamesave.dto.SnapshotSummaryResult> results =
                 new ArrayList<>(snapshots.size());
+        Map<String, List<SnapshotRootResult>> rootsBySnapshot = loadRoots(
+                snapshots.stream().map(GameSnapshot::getSnapshotId).collect(java.util.stream.Collectors.toList()));
         for (GameSnapshot snapshot : snapshots) {
-            results.add(com.thx.module.gamesave.dto.SnapshotSummaryResult.from(snapshot));
+            results.add(com.thx.module.gamesave.dto.SnapshotSummaryResult.from(
+                    snapshot,
+                    rootsBySnapshot.getOrDefault(snapshot.getSnapshotId(), Collections.emptyList())));
         }
         return results;
     }
@@ -96,6 +107,8 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
                     file.getSha256(),
                     file.getSize()));
         }
+        List<SnapshotRootResult> roots = loadRoots(Collections.singletonList(snapshot.getSnapshotId()))
+                .getOrDefault(snapshot.getSnapshotId(), Collections.emptyList());
         return new com.thx.module.gamesave.dto.SnapshotManifestResult(
                 snapshot.getSnapshotId(),
                 snapshot.getGameId(),
@@ -104,6 +117,7 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
                 snapshot.getTriggerType(),
                 snapshot.getDescription(),
                 snapshot.getCreateTime(),
+                roots,
                 files);
     }
 
@@ -112,10 +126,13 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
             Arrays.asList("MANUAL", "GAME_EXIT", "BEFORE_RESTORE", "IMPORT"));
     // 单个快照允许提交的文件数量上限，避免无界 Manifest 触发超大批量查询或拖垮数据库。
     private static final int MAX_MANIFEST_FILES = GameSaveProtocolLimits.MAXIMUM_MANIFEST_FILES;
+    private static final Pattern ROOT_ID_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{1,64}$");
+    private static final Set<String> ALLOWED_ROOT_TYPES = new HashSet<>(Arrays.asList("FILE", "REGISTRY"));
 
     private final GameLibraryMapper gameLibraryMapper;
     private final GameSnapshotMapper gameSnapshotMapper;
     private final GameSnapshotFileMapper gameSnapshotFileMapper;
+    private final GameSnapshotRootMapper gameSnapshotRootMapper;
     private final GameSyncHeadMapper gameSyncHeadMapper;
     private final GameObjectMapper gameObjectMapper;
     private final GameObjectService gameObjectService;
@@ -173,12 +190,14 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
         }
 
         List<ResolvedSnapshotFile> resolvedFiles = resolveManifest(request.getFiles(), caller);
+        List<SnapshotRootDescriptor> roots = validateRoots(request.getRoots(), resolvedFiles);
         long logicalSize = calculateLogicalSize(resolvedFiles);
         int changedFileCount = calculateChangedFileCount(currentHead.getHeadSnapshotId(), resolvedFiles);
 
         // 已有 HEAD 且 Manifest 完全一致时直接返回当前版本，避免重复同步制造零变化快照、
         // 重复 snapshot_file 元数据以及无意义的对象引用计数增长。
-        if (currentHead.getHeadSnapshotId() != null && changedFileCount == 0) {
+        if (currentHead.getHeadSnapshotId() != null && changedFileCount == 0
+                && rootMetadataMatches(currentHead.getHeadSnapshotId(), roots)) {
             GameSyncHead confirmedHead = findHead(caller.getUserId(), gameId);
             if (confirmedHead == null
                     || !Objects.equals(currentHead.getHeadSnapshotId(), confirmedHead.getHeadSnapshotId())
@@ -208,6 +227,18 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
                 .setChangedFileCount(changedFileCount)
                 .setStatus(ACTIVE);
         gameSnapshotMapper.insert(snapshot);
+
+        for (SnapshotRootDescriptor root : roots) {
+            gameSnapshotRootMapper.insert(new GameSnapshotRoot()
+                    .setSnapshotId(snapshotId)
+                    .setRootId(root.getRootId().trim())
+                    .setRootType(root.getRootType().trim().toUpperCase(Locale.ROOT))
+                    .setPathTemplate(normalizeNullableText(root.getPathTemplate()))
+                    .setSource(normalizeSource(root.getSource()))
+                    .setConfidence(root.getConfidence() == null ? 0 : root.getConfidence())
+                    .setIncludePatternsJson(JSON.toJSONString(normalizePatterns(root.getIncludePatterns())))
+                    .setExcludePatternsJson(JSON.toJSONString(normalizePatterns(root.getExcludePatterns()))));
+        }
 
         for (ResolvedSnapshotFile resolved : resolvedFiles) {
             GameSnapshotFile snapshotFile = new GameSnapshotFile()
@@ -283,6 +314,142 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
 
     private String normalizeHash(String sha256) {
         return sha256 == null ? "" : sha256.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private List<SnapshotRootDescriptor> validateRoots(List<SnapshotRootDescriptor> roots,
+                                                       List<ResolvedSnapshotFile> files) {
+        if (roots == null || roots.isEmpty()) {
+            return Collections.emptyList();
+        }
+        if (roots.size() > GameSaveProtocolLimits.MAXIMUM_SNAPSHOT_ROOTS) {
+            throw GameSaveException.badRequest("TOO_MANY_ROOTS", "单个快照的存档根目录数量不能超过 "
+                    + GameSaveProtocolLimits.MAXIMUM_SNAPSHOT_ROOTS);
+        }
+        Set<String> rootIds = new HashSet<>();
+        for (SnapshotRootDescriptor root : roots) {
+            if (root == null || root.getRootId() == null
+                    || !ROOT_ID_PATTERN.matcher(root.getRootId().trim()).matches()) {
+                throw GameSaveException.badRequest("INVALID_ROOT_ID", "存档根目录标识不合法");
+            }
+            String rootId = root.getRootId().trim();
+            if (!rootIds.add(rootId.toLowerCase(Locale.ROOT))) {
+                throw GameSaveException.badRequest("DUPLICATE_ROOT_ID", "快照中存在重复存档根目录: " + rootId);
+            }
+            String rootType = root.getRootType() == null ? "" : root.getRootType().trim().toUpperCase(Locale.ROOT);
+            if (!ALLOWED_ROOT_TYPES.contains(rootType)) {
+                throw GameSaveException.badRequest("INVALID_ROOT_TYPE", "存档根目录类型不受支持: " + rootType);
+            }
+            String pathTemplate = normalizeNullableText(root.getPathTemplate());
+            if (pathTemplate != null && pathTemplate.length() > GameSaveProtocolLimits.PATH_TEMPLATE_MAX_LENGTH) {
+                throw GameSaveException.badRequest("PATH_TEMPLATE_TOO_LONG", "存档路径模板过长");
+            }
+            if (pathTemplate != null && pathTemplate.chars().anyMatch(Character::isISOControl)) {
+                throw GameSaveException.badRequest("INVALID_PATH_TEMPLATE", "存档路径模板包含控制字符");
+            }
+            int confidence = root.getConfidence() == null ? 0 : root.getConfidence();
+            if (confidence < 0 || confidence > 100) {
+                throw GameSaveException.badRequest("INVALID_ROOT_CONFIDENCE", "存档路径置信度必须在 0 到 100 之间");
+            }
+            normalizePatterns(root.getIncludePatterns());
+            normalizePatterns(root.getExcludePatterns());
+        }
+        for (ResolvedSnapshotFile file : files) {
+            int separator = file.getRelativePath().indexOf('/');
+            String rootId = separator <= 0 ? "" : file.getRelativePath().substring(0, separator).toLowerCase(Locale.ROOT);
+            if (!rootIds.contains(rootId)) {
+                throw GameSaveException.badRequest("UNKNOWN_ROOT_ID", "快照文件引用了未声明的存档根目录: "
+                        + file.getRelativePath());
+            }
+        }
+        return roots;
+    }
+
+    private List<String> normalizePatterns(List<String> patterns) {
+        if (patterns == null || patterns.isEmpty()) {
+            return Collections.emptyList();
+        }
+        if (patterns.size() > GameSaveProtocolLimits.MAXIMUM_PATTERNS_PER_ROOT) {
+            throw GameSaveException.badRequest("TOO_MANY_ROOT_PATTERNS", "单个存档根目录的包含或排除规则过多");
+        }
+        List<String> normalized = new ArrayList<>(patterns.size());
+        for (String pattern : patterns) {
+            if (pattern == null || pattern.trim().isEmpty()
+                    || pattern.trim().length() > GameSaveProtocolLimits.PATTERN_MAX_LENGTH
+                    || pattern.chars().anyMatch(Character::isISOControl)) {
+                throw GameSaveException.badRequest("INVALID_ROOT_PATTERN", "存档根目录包含非法扫描规则");
+            }
+            normalized.add(pattern.trim());
+        }
+        return normalized;
+    }
+
+    private String normalizeSource(String source) {
+        String normalized = source == null || source.trim().isEmpty()
+                ? "UNKNOWN" : source.trim().toUpperCase(Locale.ROOT);
+        if (normalized.length() > 32) {
+            throw GameSaveException.badRequest("INVALID_ROOT_SOURCE", "存档路径来源过长");
+        }
+        return normalized;
+    }
+
+    private String normalizeNullableText(String value) {
+        return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private Map<String, List<SnapshotRootResult>> loadRoots(List<String> snapshotIds) {
+        if (snapshotIds == null || snapshotIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        List<GameSnapshotRoot> rows = gameSnapshotRootMapper.selectList(
+                new LambdaQueryWrapper<GameSnapshotRoot>()
+                        .in(GameSnapshotRoot::getSnapshotId, snapshotIds)
+                        .orderByAsc(GameSnapshotRoot::getId));
+        Map<String, List<SnapshotRootResult>> result = new HashMap<>();
+        for (GameSnapshotRoot row : rows) {
+            result.computeIfAbsent(row.getSnapshotId(), ignored -> new ArrayList<>()).add(
+                    SnapshotRootResult.from(
+                            row,
+                            parsePatterns(row.getIncludePatternsJson()),
+                            parsePatterns(row.getExcludePatternsJson())));
+        }
+        return result;
+    }
+
+    /** 旧客户端不提交 roots 时维持原有幂等语义；新客户端提交的新路径元数据会生成一个新快照。 */
+    private boolean rootMetadataMatches(String snapshotId, List<SnapshotRootDescriptor> requestedRoots) {
+        if (requestedRoots == null || requestedRoots.isEmpty()) {
+            return true;
+        }
+        List<SnapshotRootResult> existingRoots = loadRoots(Collections.singletonList(snapshotId))
+                .getOrDefault(snapshotId, Collections.emptyList());
+        if (existingRoots.size() != requestedRoots.size()) {
+            return false;
+        }
+        Map<String, SnapshotRootResult> existingById = new HashMap<>();
+        for (SnapshotRootResult root : existingRoots) {
+            existingById.put(root.getRootId().toLowerCase(Locale.ROOT), root);
+        }
+        for (SnapshotRootDescriptor requested : requestedRoots) {
+            SnapshotRootResult existing = existingById.get(requested.getRootId().trim().toLowerCase(Locale.ROOT));
+            if (existing == null
+                    || !Objects.equals(existing.getRootType(), requested.getRootType().trim().toUpperCase(Locale.ROOT))
+                    || !Objects.equals(existing.getPathTemplate(), normalizeNullableText(requested.getPathTemplate()))
+                    || !Objects.equals(existing.getSource(), normalizeSource(requested.getSource()))
+                    || existing.getConfidence() != (requested.getConfidence() == null ? 0 : requested.getConfidence())
+                    || !Objects.equals(existing.getIncludePatterns(), normalizePatterns(requested.getIncludePatterns()))
+                    || !Objects.equals(existing.getExcludePatterns(), normalizePatterns(requested.getExcludePatterns()))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private List<String> parsePatterns(String json) {
+        if (json == null || json.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<String> patterns = JSON.parseArray(json, String.class);
+        return patterns == null ? Collections.emptyList() : patterns;
     }
 
     /** changedFileCount 同时统计新增、内容修改和路径删除。 */

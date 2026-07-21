@@ -7,6 +7,8 @@ import com.thx.module.gamesave.config.GameSaveProperties;
 import com.thx.module.gamesave.dto.GameLoginRequest;
 import com.thx.module.gamesave.dto.GameLoginResult;
 import com.thx.module.gamesave.dto.GameRegisterRequest;
+import com.thx.module.gamesave.dto.GameSessionResult;
+import com.thx.module.gamesave.context.GameCallerContext;
 import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.mapper.GameAccountMapper;
 import com.thx.module.gamesave.mapper.GameDeviceMapper;
@@ -76,6 +78,18 @@ public class GameAuthServiceImpl implements GameAuthService {
             throw GameSaveException.unauthorized("INVALID_CREDENTIALS", "用户名或密码错误");
         }
         return issueDeviceToken(account, request.getDeviceId(), request.getDeviceName());
+    }
+
+    @Override
+    public GameSessionResult getSession(GameCallerContext caller) {
+        GameAccount account = gameAccountMapper.selectOne(new LambdaQueryWrapper<GameAccount>()
+                .eq(GameAccount::getUserId, caller.getUserId())
+                .eq(GameAccount::getStatus, 1)
+                .last("LIMIT 1"));
+        if (account == null) {
+            throw GameSaveException.unauthorized("ACCOUNT_DISABLED", "账号不存在或已停用");
+        }
+        return new GameSessionResult(account.getUserId(), caller.getDeviceId(), account.getUsername());
     }
 
     /** 为当前账号创建或更新设备，并轮换设备 Token。 */
