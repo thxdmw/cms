@@ -20,21 +20,16 @@ services:
     image: redis:7-alpine
 
 steps:
-  - name: verify
-    image: maven:3.9.11-eclipse-temurin-21
-    environment:
-      # 单元测试不依赖外部组件；需要数据库的集成测试通过下面这些变量连接 service 容器。
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/cms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
-      SPRING_REDIS_HOST: redis
-      SPRING_REDIS_PORT: "6379"
+  # 数据库初始化必须单独用 mysql 镜像做：maven 镜像里没有 mysql / mysqladmin 客户端，
+  # 在里面执行会因命令不存在而失败（且失败信息容易被重定向吞掉，表现为“等待超时”）。
+  - name: init-database
+    image: mysql:5.7
     commands:
-      # 等待 MySQL 就绪：service 容器启动完成不代表数据库已经可以接受连接。
+      # service 容器被拉起不等于数据库已能接受连接，这里轮询直到 ping 通。
       - |
         set -eu
         for attempt in $(seq 1 60); do
-          if mysqladmin ping -h mysql -uroot -proot --silent >/dev/null 2>&1; then
+          if mysqladmin ping -h mysql -uroot -proot --silent; then
             echo "MySQL 已就绪"
             break
           fi
@@ -44,8 +39,9 @@ steps:
           fi
           sleep 2
         done
-      # 初始化各模块表结构。每个模块只有一个初始化 SQL，顺序：
-      # platform 打底，file 在前（gamesave 的种子数据依赖 file_app/file_policy 表）。
+      # 初始化各模块表结构。每个模块只有一个初始化 SQL，顺序不能颠倒：
+      # platform 打底，file 必须在 gamesave 之前（gamesave 种子数据依赖 file_app/file_policy 表）。
+      # 必须带 --default-character-set=utf8mb4，否则脚本里的中文会报 Incorrect string value。
       - |
         set -eu
         for f in docs/modules/platform/cms.sql \
@@ -55,6 +51,20 @@ steps:
           echo "导入 $f"
           mysql --default-character-set=utf8mb4 -h mysql -uroot -proot cms < "$f"
         done
+
+  - name: verify
+    image: maven:3.9.11-eclipse-temurin-21
+    depends_on:
+      - init-database
+    environment:
+      # 单元测试不依赖外部组件；需要数据库的集成测试通过下面这些变量连接 service 容器。
+      # 这些变量只在 CI 内生效，连的是流水线里的一次性数据库，不涉及任何真实环境。
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/cms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: "6379"
+    commands:
       # clean 不能省：残留的旧构建产物会被打进 jar，
       # 曾导致已删除的 Flyway 脚本被重新执行。
       - mvn clean package -B -ntp

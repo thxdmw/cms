@@ -5,9 +5,11 @@ spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driverClassName: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/cms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
-    username: root
-    password: 123456
+    # 冒号后是本地开发默认值，直接运行无需配置任何环境变量；
+    # CI 中数据库跑在名为 mysql 的 service 容器里，通过环境变量覆盖即可，不必单独维护一套 profile。
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/cms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:123456}
     druid:
 # ===== Druid 监控页面（可选，生产建议内网）=====
       stat-view-servlet:
@@ -19,9 +21,10 @@ spring:
         deny:
   data:
     redis:
-      host: localhost
-      port: 6379
-      password:
+      # 同上：默认连本地，CI 通过环境变量指向 redis service 容器
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      password: ${SPRING_REDIS_PASSWORD:}
       timeout: 5000
   devtools:
     restart:
