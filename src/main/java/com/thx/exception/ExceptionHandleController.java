@@ -11,6 +11,7 @@ import com.thx.common.util.JsonUtil;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -32,6 +33,21 @@ public class ExceptionHandleController {
     @ExceptionHandler({NotPermissionException.class, NotRoleException.class})
     public String handleAuth(HttpServletRequest request) {
         request.setAttribute("jakarta.servlet.error.status_code", ResponseStatus.FORBIDDEN.getCode());
+        return "forward:/error";
+    }
+
+    /**
+     * 静态资源不存在，按 404 返回，且只记一条 debug 日志。
+     * <p>
+     * 这类请求绝大多数是浏览器 DevTools 自动探测 sourcemap（{@code *.js.map}、{@code *.css.map}）
+     * 产生的——这些 map 文件本来就没有随第三方库一起分发。若交给下面的兜底 handler，
+     * 会被当作未知异常打印完整堆栈并按 500 返回，既刷屏淹没真正的错误，
+     * 又让监控误以为服务在大量 500。资源不存在语义上就是 404，不是服务端故障。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public String handleNoResource(NoResourceFoundException e, HttpServletRequest request) {
+        log.debug("静态资源不存在: {}", request.getRequestURI());
+        request.setAttribute("jakarta.servlet.error.status_code", ResponseStatus.NOT_FOUND.getCode());
         return "forward:/error";
     }
 

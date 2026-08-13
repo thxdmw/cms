@@ -101,10 +101,16 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
         </dependency>
-        <!--Druid 数据库连接池：连接池管理 + SQL 防火墙 + 监控页面-->
+        <!--Druid 数据库连接池：连接池管理 + SQL 防火墙 + 监控页面。
+            必须用 druid-spring-boot-3-starter 而不是 druid-spring-boot-starter：
+            后者的自动配置只注册在 META-INF/spring.factories，而 Spring Boot 3 已改为读取
+            META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports，
+            因此在 Boot 3 下它的自动配置完全不会加载——表现为 spring.datasource.druid.* 下的
+            连接池参数、filters（stat/wall/slf4j）、监控 Servlet 全部静默失效
+            （数据源本身仍能创建，因为那是 spring.datasource.type 指定的，不依赖该 starter）。-->
         <dependency>
             <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
+            <artifactId>druid-spring-boot-3-starter</artifactId>
             <version>${druid.version}</version>
         </dependency>
         <!--Sa-Token：认证鉴权框架，提供登录态、会话、注解/路由鉴权与同账号登录数限制。
