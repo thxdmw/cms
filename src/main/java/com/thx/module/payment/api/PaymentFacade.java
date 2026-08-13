@@ -21,7 +21,7 @@ import com.thx.module.payment.api.result.RefundResult;
 public interface PaymentFacade {
 
     /**
-     * 创建支付。appCode+businessOrderNo 是幂等键，具体幂等策略见 docs/payment-architecture.md 第十二节。
+     * 创建支付。appCode+businessOrderNo 是幂等键，具体幂等策略见 docs/modules/payment/README.md 第十二节。
      */
     CreatePaymentResult createPayment(CreatePaymentCommand command);
 

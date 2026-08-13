@@ -82,6 +82,10 @@ public class UrlPermissionRuleService {
         patterns.add("/libs/**");
         patterns.add("/favicon.ico");
         patterns.add("/captcha");
+        // 健康检查端点必须匿名放行，否则会被重定向到登录页，
+        // 导致 deploy.sh 的健康检查永远失败、每次部署都误判为故障并回滚。
+        // 只放行 health 这一个端点；其它 actuator 端点已在 application.yml 中关闭暴露。
+        patterns.add("/actuator/health");
         patterns.add("/tools/api/**");
         // 文件系统 /api/v1/files/** 不走会话认证，改由 FileAuthInterceptor 做 API Key 认证
         patterns.add("/api/v1/files/**");

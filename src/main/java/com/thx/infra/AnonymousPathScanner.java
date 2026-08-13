@@ -24,7 +24,12 @@ public class AnonymousPathScanner implements ApplicationListener<ContextRefreshe
 
     @Override
     public void onApplicationEvent(ContextRefreshedEvent event) {
-        RequestMappingHandlerMapping mapping = event.getApplicationContext().getBean(RequestMappingHandlerMapping.class);
+        // 必须按 Bean 名称取，不能按类型取：引入 Actuator 后容器里会同时存在
+        // requestMappingHandlerMapping（业务接口）和 controllerEndpointHandlerMapping
+        // （Actuator 端点）两个同类型 Bean，按类型获取会抛 NoUniqueBeanDefinitionException
+        // 导致应用无法启动。这里只需要扫描业务接口上的 @AnonymousAccess。
+        RequestMappingHandlerMapping mapping = event.getApplicationContext()
+                .getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class);
 
         for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : mapping.getHandlerMethods().entrySet()) {
             HandlerMethod handlerMethod = entry.getValue();

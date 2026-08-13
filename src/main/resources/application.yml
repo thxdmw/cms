@@ -46,6 +46,24 @@ spring:
   aop:
     proxy-target-class: true
 
+# Actuator：仅用于部署时的健康检查，只暴露 health 一个端点。
+# 不要放开 env/beans/configprops 等端点——它们会泄露数据库地址、密钥等配置信息。
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      # 不对外显示各组件的明细（数据库/Redis 连接串等），只返回总体 UP/DOWN
+      show-details: never
+      show-components: never
+  # 健康检查不因 Redis/邮件等非致命组件抖动而判定整体 DOWN，
+  # 避免部署时因为某个外部依赖短暂不可用就误触发回滚
+  health:
+    mail:
+      enabled: false
+
 # Sa-Token 认证鉴权配置（取代原先散落在 ShiroConfig 里的手写 Bean）
 sa-token:
   # 登录态 token 的名称，同时也是 Cookie 名

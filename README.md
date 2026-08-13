@@ -35,19 +35,39 @@
 
 1. 将本项目源码导入本地开发工具(如 IntelliJ IDEA )，本地开发工具需要安装 [lombok](https://projectlombok.org/) 插件
 2. 安装`MySQL`数据库：版本最低支持 5.7，新建 database `CREATE DATABASE cms;`
-3. 初始化数据库：找到项目数据库文件 `docs/modules/platform/cms.sql`（文件系统相关表另见 `docs/modules/file/schema.sql`），执行导入
+3. 初始化数据库：按顺序执行四个模块的初始化脚本（顺序不能颠倒，gamesave 种子数据依赖 file 模块的表），
+   详见 [`docs/modules/README.md`](docs/modules/README.md)
+   ```bash
+   mysql --default-character-set=utf8mb4 -u root -p cms < docs/modules/platform/cms.sql
+   mysql --default-character-set=utf8mb4 -u root -p cms < docs/modules/file/schema.sql
+   mysql --default-character-set=utf8mb4 -u root -p cms < docs/modules/payment/schema.sql
+   mysql --default-character-set=utf8mb4 -u root -p cms < docs/modules/gamesave/schema.sql
+   ```
 4. 安装`Redis`：最低版本支持 3.2
 5. 安装`MinIO`（文件上传/存储依赖）：本地开发默认指向 `http://localhost:9000`，也可以通过环境变量 `MINIO_ENDPOINT`/`MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` 指向已有实例
 6. 修改(`resources/application-dev.yml`)配置文件
     1. 修改数据库连接串、用户名和密码(可搜索`datasource`)
     2. redis 配置(可搜索`redis`)
 7. 运行项目(三种方式)
-    1. 项目根目录下执行`mvn -X clean package -Dmaven.test.skip=true`编译打包，然后执行`java -jar target/cms.jar`
+    1. 项目根目录下执行`mvn clean package -DskipTests`编译打包，然后执行`java -jar target/cms.jar`
     2. 项目根目录下执行`mvn spring-boot:run`
     3. 直接运行`SpringbootApplication.java`
 8. 前台首页，浏览器访问`http://localhost:8080`
 9. 后台首页，浏览器访问`http://localhost:8080/admin`使用账号密码admin,123456登录系统后台。
 
+> 数据库结构变更请勿再直接改初始化脚本：已有环境走 Flyway 迁移，规范见
+> [`src/main/resources/db/migration/README.md`](src/main/resources/db/migration/README.md)。
+
+## 部署
+
+推送到 `master` 分支后由 Drone CI（`.drone.yml`）自动完成：先拉起 MySQL/Redis 跑完整构建与测试，
+通过后再 SSH 到服务器执行 `deploy.sh`。
+
+`deploy.sh` 先构建候选镜像（此时旧版本继续对外服务），切换后轮询 `/actuator/health` 确认新版本真正
+就绪；**健康检查失败会自动回滚到上一个镜像**。镜像按提交号打标签并保留最近 4 个版本。
+
+部署前需在服务器上准备好环境变量文件：复制 [`.env.example`](.env.example) 为部署目录上一级的
+`config/.env` 并填入真实配置。
 
 ## 使用
 

@@ -5,7 +5,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- GameSave V2 业务表。文件二进制与生命周期统一委托 module.file。
 
+DROP TABLE IF EXISTS `game_cleanup_task`;
 DROP TABLE IF EXISTS `game_sync_head`;
+DROP TABLE IF EXISTS `game_snapshot_root`;
 DROP TABLE IF EXISTS `game_snapshot_file`;
 DROP TABLE IF EXISTS `game_snapshot`;
 DROP TABLE IF EXISTS `game_object`;
@@ -34,12 +36,14 @@ CREATE TABLE `game_device` (
     `user_id` varchar(64) NOT NULL,
     `device_name` varchar(128) NOT NULL,
     `token_hash` varchar(64) NOT NULL COMMENT '设备 Token SHA-256，禁止保存明文',
+    `token_expire_time` datetime NOT NULL COMMENT '设备 Token 过期时间',
     `last_seen_time` datetime DEFAULT NULL,
     `status` tinyint(4) NOT NULL DEFAULT 1,
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_game_device_device_id` (`device_id`),
+    -- device_id 只在同一用户下唯一：不同用户允许使用相同的设备标识
+    UNIQUE KEY `uk_game_device_user_device` (`user_id`, `device_id`),
     UNIQUE KEY `uk_game_device_token_hash` (`token_hash`),
     KEY `idx_game_device_user` (`user_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='GameSave 设备';
@@ -109,12 +113,14 @@ CREATE TABLE `game_snapshot_file` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `snapshot_id` varchar(64) NOT NULL,
     `relative_path` varchar(1024) NOT NULL,
+    `relative_path_hash` char(64) NOT NULL COMMENT 'SHA2(relative_path,256)，用于绕开索引长度限制做精确唯一约束',
     `object_id` varchar(64) NOT NULL,
     `size` bigint(20) NOT NULL,
     `sha256` varchar(64) NOT NULL,
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_game_snapshot_file_path` (`snapshot_id`, `relative_path`(512)),
+    -- 对完整路径的哈希做唯一约束，避免前缀索引把超长且前 512 字符相同的路径误判为重复
+    UNIQUE KEY `uk_game_snapshot_file_hash` (`snapshot_id`, `relative_path_hash`),
     KEY `idx_game_snapshot_file_object` (`object_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='快照文件清单';
 
@@ -128,6 +134,22 @@ CREATE TABLE `game_sync_head` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_game_sync_head_user_game` (`user_id`, `game_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='游戏同步 HEAD，使用 CAS 推进';
+
+CREATE TABLE `game_snapshot_root` (
+    `id` bigint(20) NOT NULL AUTO_INCREMENT,
+    `snapshot_id` varchar(64) NOT NULL,
+    `root_id` varchar(64) NOT NULL,
+    `root_type` varchar(16) NOT NULL,
+    `path_template` varchar(1024) DEFAULT NULL,
+    `source` varchar(32) NOT NULL,
+    `confidence` int(11) NOT NULL DEFAULT 0,
+    `include_patterns_json` text NOT NULL,
+    `exclude_patterns_json` text NOT NULL,
+    `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_game_snapshot_root` (`snapshot_id`, `root_id`),
+    KEY `idx_game_snapshot_root_snapshot` (`snapshot_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='快照存档根路径元数据';
 
 CREATE TABLE `game_cleanup_task` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,

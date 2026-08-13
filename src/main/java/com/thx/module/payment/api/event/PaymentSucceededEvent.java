@@ -11,7 +11,7 @@ import java.util.Date;
 import java.util.Map;
 
 /**
- * 支付成功事件负载。业务模块必须根据 {@link #eventId} 做消费幂等（见 docs/payment-integration-example.md），
+ * 支付成功事件负载。业务模块必须根据 {@link #eventId} 做消费幂等（见 docs/modules/payment/README.md），
  * 不能仅凭 Android 客户端"支付成功"回调就发放业务权益。
  */
 @Data

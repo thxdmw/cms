@@ -7,7 +7,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 --   payment_business_app / payment_channel_account / payment_app_channel_binding /
 --   payment_order / payment_attempt / payment_refund_order /
 --   payment_channel_notify_record / payment_event / payment_audit_log
--- 设计说明见 docs/payment-architecture.md。
+-- 设计说明见 docs/modules/payment/README.md。
 -- 本脚本按 MySQL 5.7 兼容语法编写（生产环境固定 5.7），不使用 8.0 专属特性。
 -- 与 file_system.sql 不同，本模块当前没有真实业务方接入（项目尚无 pet/agent 等业务模块），
 -- 因此不包含种子数据；文末以注释形式给出业务方接入时需要执行的 INSERT 示例。

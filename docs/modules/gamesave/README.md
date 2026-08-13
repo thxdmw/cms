@@ -9,32 +9,20 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 ## 首次部署
 
 1. 部署 MySQL、Redis 和 MinIO，并配置 CMS 的生产环境变量。
-2. 依次执行 `docs/modules/platform/cms.sql`、`docs/modules/file/schema.sql`；GameSave 业务表由 Flyway 自动迁移。全新离线初始化也可以执行本目录的 `schema.sql`。
+2. 按顺序执行各模块初始化 SQL：`docs/modules/platform/cms.sql` → `docs/modules/file/schema.sql` → `docs/modules/payment/schema.sql` → 本目录的 `schema.sql`（GameSave 的种子数据依赖 file 模块的表，顺序不能颠倒）。
 3. 确保 MinIO 中存在私有 bucket `game-save-private`，并使 CMS 服务端能访问其内网 endpoint。
 4. 以 HTTPS 公开 CMS；Windows 客户端仅允许 `localhost` 使用 HTTP。
 5. 发布 CMS 后注册一个 GameSave 账号，完成一次上传、快照提交和对象下载验证。
 
-> `schema.sql` 用于全新环境，含有建表前清理语句。已有 GameSave 数据的生产环境禁止直接执行它；启动 CMS 时由 `db/migration/V1...V8` 自动执行增量迁移。V7 会幂等写入 `game-save / GAME_SAVE_OBJECT / save-object` 文件策略，V8 会为游戏清理任务增加租约并把孤儿对象索引切换到 `update_time`。
-
-## 无 Flyway 历史的旧数据库
-
-CMS 启动时如果发现任一 GameSave 表存在，但 `flyway_schema_history` 中没有成功的 GameSave V1 迁移、可逐条验证的早期 V2～V8 迁移链，或明确的“旧 GameSave V8 人工基线”，会直接拒绝迁移并输出操作提示。仅存在其他模块创建的 Flyway 历史表或普通 baseline 记录不能绕过保护。禁止通过 `baseline-on-migrate` 自动猜测这种数据库的版本，因为历史 `schema.sql` 可能同时含有不同迁移阶段的列和索引。
-
-管理员必须按以下顺序处理：
-
-1. 停止全部 CMS 实例并完整备份数据库。
-2. 在备份副本上执行 `docs/modules/gamesave/migrate-legacy-non-flyway.sql`，确认数据行数和配额未变化。
-3. 使用与项目一致的 Flyway 7.15 对该库执行 `baseline`，明确设置 `baselineVersion=8` 和 `baselineDescription=旧 GameSave V8 人工基线`；不能使用默认版本或其他描述。
-4. 重新启动 CMS，让 Flyway 执行校验，并完成一次上传、下载、冲突和恢复验收。
-
-该专用脚本可重复执行，负责补齐 V4/V5/V6/V7/V8 所需结构和文件策略，但不会自行创建或伪造 Flyway 历史表。已有 `game-save` 文件应用的 `api_key_hash` 和 `quota_bytes` 会原样保留。
+> `schema.sql` 是本模块结构的唯一事实来源，始终代表最新结构，并含有建表前的清理语句（`DROP TABLE IF EXISTS`）。
+> **已有数据的环境禁止执行它**——那会清空业务数据；已有环境的结构变更一律走 Flyway，见 `src/main/resources/db/migration/README.md`。
 
 ## 认证与设备
 
 - 注册与登录：`POST /api/game-save/v1/auth/register`、`POST /api/game-save/v1/auth/login`，请求体包含 `username`、`password`、`deviceId`、`deviceName`。
 - 设备 ID 与名称由 Windows 客户端自动生成：设备 ID 持久化在本地 SQLite，名称使用当前电脑名；用户不需要填写。
 - 其余 `/api/game-save/v1/**` 请求使用 `Authorization: Bearer <deviceToken>`。
-- GameSave 请求绕过 CMS 后台 Shiro 会话认证，由 `GameDeviceTokenInterceptor` 返回 JSON 格式 401/403；不会重定向到 `/login`。
+- GameSave 请求绕过 CMS 后台 Sa-Token 会话认证，由 `GameDeviceTokenInterceptor` 返回 JSON 格式 401/403；不会重定向到 `/login`。
 - 登录限流默认只使用 TCP 对端地址。仅当反向代理地址明确配置到 `gamesave.trusted-proxy-addresses` 时才接受 `X-Forwarded-For`，避免客户端伪造来源 IP。
 
 ## 后台清理安全
@@ -62,4 +50,4 @@ CMS 启动时如果发现任一 GameSave 表存在，但 `flyway_schema_history`
 - `.github/workflows/gamesave-integration.yml` 在 `main/master/dev` 推送、PR 或手动触发时启动 MySQL 5.7、Redis 和 MinIO。
 - 目标环境测试覆盖注册、登录、Redis 限流键、缺失对象检查、上传、真正并发的双设备快照提交、HEAD、预签名下载、快照删除、对象清理、配额恢复和游戏后台清理。
 - 真实 MySQL 行锁测试覆盖对象触碰/孤儿抢占、快照引用/删除抢占、清理完成/重新激活，以及过期租约的双 Worker 认领。
-- 迁移测试分别验证空库 `V1 → V8`、带真实旧数据的 `V6 → V8`、“历史 schema、无 Flyway 历史”先拒绝自动升级、执行专用脚本和 V8 baseline 后保留数据，以及既有文件应用凭据和配额不被覆盖。
+- `SchemaInitScriptTest` 校验 `schema.sql` 是否包含全部已合并的历史结构（设备 Token 过期时间、路径哈希唯一键、清理租约字段、快照根表、文件策略种子等），防止初始化脚本与实际结构再次漂移。

@@ -1,68 +1,94 @@
 kind: pipeline
-name: drone
+name: gitee-drone
 
 platform:
   os: linux
   arch: amd64
 
-clone:
-  disable: true  # 禁用自动克隆
+# Drone 由 Gitee 推送触发，并使用 Gitee 绑定凭据自动检出当前提交。
+# 不再禁用 clone：先在 CI 里跑一遍构建与测试，通过后才允许部署，
+# 避免旧配置那样「推送即部署」——编译不过或测试挂了也会直接上线。
+services:
+  # 集成测试需要真实 MySQL 与 Redis。镜像版本与生产保持一致：
+  # 生产 MySQL 固定 5.7，SQL 必须按 5.7 兼容编写，这里用同版本才能真正验出兼容性问题。
+  - name: mysql
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: cms
+  - name: redis
+    image: redis:7-alpine
 
-#服务器操作
 steps:
-  - name: ssh
-    image: appleboy/drone-ssh
-    settings:
-      host: 43.130.247.22       # 远程服务器 IP
-      port: 2222                # SSH 端口
-      username: tanghaixin      # SSH 用户
-      password:
-        from_secret: ssh_password
-      command_timeout: 2m
-#      script:
-#        - echo "done 流水线启动"
-#        - cd /app/cms/cms     # 进入代码根目录
-#        - sudo git restore .  # 清理本地修改后pull 避免pull失败
-#        - sudo git pull       # 拉取最新代码
-#        - cd /app/cms         # 进入部署脚本目录
-#        - sudo ./deploy.sh
-#        - echo "done 流水线结束"
-      script:
-        - echo "done 流水线启动"
-
-        # 1. 确保基础目录存在（兼容首次部署）
-        - sudo mkdir -p /app/cms
-
-        # 2. 判断代码仓库是否存在，不存在则 clone，存在则更新
-        - |
-          if [ ! -d "/app/cms/cms/.git" ]; then
-            echo "📦 检测到首次部署，开始克隆代码..."
-            # ⚠️ 请替换为实际的代码仓库地址
-            sudo git clone https://gitee.com/tang-haixin/cms.git /app/cms/cms
-          else
-            echo "🔄 检测到已有代码，清理本地修改并拉取最新..."
-            cd /app/cms/cms
-            sudo git restore .
-            sudo git pull
+  - name: verify
+    image: maven:3.9.11-eclipse-temurin-21
+    environment:
+      # 单元测试不依赖外部组件；需要数据库的集成测试通过下面这些变量连接 service 容器。
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/cms?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: "6379"
+    commands:
+      # 等待 MySQL 就绪：service 容器启动完成不代表数据库已经可以接受连接。
+      - |
+        set -eu
+        for attempt in $(seq 1 60); do
+          if mysqladmin ping -h mysql -uroot -proot --silent >/dev/null 2>&1; then
+            echo "MySQL 已就绪"
+            break
           fi
-
-        # 3. 确保部署脚本存在且有执行权限
-        - |
-          if [ ! -f "/app/cms/cms/deploy.sh" ]; then
-            echo "❌ 错误：deploy.sh 不存在，请检查代码仓库中是否包含该文件"
+          if [ "$attempt" = "60" ]; then
+            echo "MySQL 启动超时"
             exit 1
           fi
-          sudo chmod +x /app/cms/cms/deploy.sh
+          sleep 2
+        done
+      # 初始化各模块表结构。每个模块只有一个初始化 SQL，顺序：
+      # platform 打底，file 在前（gamesave 的种子数据依赖 file_app/file_policy 表）。
+      - |
+        set -eu
+        for f in docs/modules/platform/cms.sql \
+                 docs/modules/file/schema.sql \
+                 docs/modules/payment/schema.sql \
+                 docs/modules/gamesave/schema.sql; do
+          echo "导入 $f"
+          mysql --default-character-set=utf8mb4 -h mysql -uroot -proot cms < "$f"
+        done
+      # clean 不能省：残留的旧构建产物会被打进 jar，
+      # 曾导致已删除的 Flyway 脚本被重新执行。
+      - mvn clean package -B -ntp
 
-        # 4. 执行部署脚本
-        - cd /app/cms/cms && sudo ./deploy.sh
+  - name: deploy
+    image: appleboy/drone-ssh
+    depends_on:
+      - verify
+    settings:
+      host: 43.130.247.22
+      port: 2222
+      username: tanghaixin
+      password:
+        from_secret: ssh_password
+      # 构建镜像（含 Maven 依赖下载与打包）耗时远超原来的 2m，超时会让部署中途被掐断。
+      command_timeout: 30m
+      script:
+        - set -eu
+        - sudo mkdir -p /app/cms
+        - |
+          if [ ! -d "/app/cms/cms/.git" ]; then
+            echo "首次部署：从 Gitee 克隆仓库"
+            sudo git clone --origin origin --branch master https://gitee.com/tang-haixin/cms.git /app/cms/cms
+          fi
+        - cd /app/cms/cms
+        - sudo git fetch --prune origin master
+        # 部署目录只作为 Gitee 代码副本，不保留服务器上的跟踪文件修改。
+        # 强制切换到本次触发的精确提交：原来的 git pull 拿的是 master 最新状态，
+        # 若期间有新推送就会部署成非本次验证过的代码。
+        # --force 同时会清理历史 chmod 或手工修改留下的脏工作树，防止 checkout 被阻塞。
+        - sudo git checkout --force --detach ${DRONE_COMMIT_SHA}
+        # 直接交给 Bash 执行，不再 chmod，避免把 deploy.sh 的权限位改成未提交状态。
+        - sudo env DEPLOY_RELEASE_TAG=${DRONE_COMMIT_SHA} bash ./deploy.sh
 
-        - echo "done 流水线结束"
-#    when:
-#      event:
-#        - push
-#      branch:
-#        - master
 trigger:
   event:
     - push

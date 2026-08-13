@@ -58,6 +58,13 @@ class UrlPermissionRuleServiceTest {
     }
 
     @Test
+    @DisplayName("健康检查端点必须匿名放行，否则部署健康检查会一直失败并触发回滚")
+    void actuatorHealthMustBeAnonymous() {
+        assertTrue(service.getAnonymousPatterns().contains("/actuator/health"),
+                "deploy.sh 依赖 /actuator/health 判断新版本是否就绪，被拦截会导致每次部署都误判失败");
+    }
+
+    @Test
     @DisplayName("登录页与静态资源匿名放行")
     void loginAndStaticResourcesAreAnonymous() {
         List<String> anon = service.getAnonymousPatterns();

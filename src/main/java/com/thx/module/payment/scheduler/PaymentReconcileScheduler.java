@@ -18,7 +18,7 @@ import java.util.List;
  * 支付状态补偿定时任务：扫描结果未知 / 长时间停留在处理中或初始状态的 Attempt，主动查询渠道澄清。
  * 不需要 {@code SELECT ... FOR UPDATE SKIP LOCKED}：多实例即使扫到同一条记录也只是各自发起一次
  * 只读查询，最终都汇聚到 {@code PaymentChannelResultProcessor} 的行锁 + 状态机 + 事件唯一约束收敛，
- * 天然去重（见 docs/payment-architecture.md 并发场景清单）。
+ * 天然去重（见 docs/modules/payment/README.md 并发场景清单）。
  */
 @Slf4j
 @Component

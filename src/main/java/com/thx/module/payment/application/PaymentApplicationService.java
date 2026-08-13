@@ -42,7 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * 创建支付流程编排。核心步骤见 docs/payment-architecture.md 第十二节。
+ * 创建支付流程编排。核心步骤见 docs/modules/payment/README.md 第十二节。
  * 本类不持有跨越渠道调用的数据库事务——真正的状态落库与事件创建统一交给
  * {@link PaymentChannelResultProcessor}（内部有自己的短事务），避免长时间持有行锁跨越网络调用。
  */

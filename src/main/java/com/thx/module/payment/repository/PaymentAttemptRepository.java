@@ -57,7 +57,7 @@ public class PaymentAttemptRepository {
     /**
      * 供 {@code PaymentReconcileScheduler} 扫描需要主动查询澄清的记录：结果未知的；
      * 长时间停留在 PROCESSING 的；长时间停留在 INIT 的（服务在调用渠道后、保存首次结果前崩溃，
-     * 见 docs/payment-architecture.md 并发场景清单"支付宝创建支付调用成功但服务崩溃"）。
+     * 见 docs/modules/payment/README.md 并发场景清单"支付宝创建支付调用成功但服务崩溃"）。
      */
     public List<PaymentAttempt> findNeedsReconcile(Date staleBefore, int limit) {
         return mapper.selectList(new LambdaQueryWrapper<PaymentAttempt>()

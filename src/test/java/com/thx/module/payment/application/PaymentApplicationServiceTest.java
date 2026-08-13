@@ -49,7 +49,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * 创建支付流程测试：首次创建、幂等分支（SUCCESS 直接返回 / 金额冲突拒绝 / CLOSED 拒绝）、
- * out_trade_no 必须取 attemptNo（而不是 paymentNo，见 docs/payment-architecture.md 第五节）。
+ * out_trade_no 必须取 attemptNo（而不是 paymentNo，见 docs/modules/payment/README.md 第五节）。
  */
 @ExtendWith(MockitoExtension.class)
 class PaymentApplicationServiceTest {

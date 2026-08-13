@@ -34,23 +34,12 @@
         <druid.version>1.2.24</druid.version>
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
 
-        <!-- 权限与验证码 -->
-        <!--
-          Sa-Token 取代原先的 Apache Shiro + shiro-redis。
-          换掉 Shiro 的直接原因不是 Shiro 本体过时（3.0.0 已支持 Jakarta），
-          而是它的 Redis 生态 shiro-redis 早已停止维护：该库针对 Jedis 3.3.0 编译，
-          会把整个项目反向锁死在 2020 年的 Jedis 版本上，且与 Spring Boot 3 的
-          依赖管理持续冲突（曾导致会话创建抛 NoSuchMethodError、后台整体 500）。
-          Sa-Token 的 Redis 集成基于 Spring Data Redis（走 Lettuce），
-          不再引入 Jedis，从根上消除这条依赖冲突链。
-        -->
+        <!-- 认证鉴权与验证码 -->
         <sa-token.version>1.44.0</sa-token.version>
         <captcha.version>2.2.3</captcha.version>
 
-        <!-- 对象存储 SDK -->
+        <!-- 存储与文件处理 -->
         <minio.version>8.5.17</minio.version>
-
-        <!-- 文件类型检测 -->
         <tika.version>2.9.2</tika.version>
 
         <!-- 通用工具库 -->
@@ -92,6 +81,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-configuration-processor</artifactId>
         </dependency>
+        <!--Actuator：提供 /actuator/health 健康检查端点。
+            部署脚本靠它判断新版本是否真正就绪（而不是只看容器进程还活着），
+            健康检查失败时自动回滚到上一个镜像。默认只暴露 health 端点，见 application.yml-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
         <!--MySQL 驱动，版本由父 POM 管理-->
         <dependency>
             <groupId>com.mysql</groupId>
@@ -111,7 +107,11 @@
             <artifactId>druid-spring-boot-starter</artifactId>
             <version>${druid.version}</version>
         </dependency>
-        <!--Sa-Token：认证鉴权框架，提供登录态、会话、注解/路由鉴权与同账号登录数限制-->
+        <!--Sa-Token：认证鉴权框架，提供登录态、会话、注解/路由鉴权与同账号登录数限制。
+            2026-08 取代原先的 Apache Shiro + shiro-redis：换掉 Shiro 的直接原因不是它本体过时
+            （3.0.0 已支持 Jakarta），而是其 Redis 生态 shiro-redis 早已停止维护——该库针对
+            Jedis 3.3.0 编译，会把整个项目反向锁死在 2020 年的 Jedis 版本上，并与 Spring Boot 3
+            的依赖管理持续冲突（曾导致会话创建抛 NoSuchMethodError、后台整体 500）。-->
         <dependency>
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-spring-boot3-starter</artifactId>
@@ -179,13 +179,6 @@
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/com.vladsch.flexmark/flexmark-all -->
-        <!--markdown转html库-->
-        <!--<dependency>-->
-        <!--    <groupId>com.vladsch.flexmark</groupId>-->
-        <!--    <artifactId>flexmark-all</artifactId>-->
-        <!--    <version>0.62.2</version>&lt;!&ndash;jdk8最后版本&ndash;&gt;-->
-        <!--</dependency>-->
         <!--邮件发送：注册验证码、通知邮件，版本由父 POM 管理-->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -214,11 +207,22 @@
     </dependencies>
 
     <build>
+        <!--固定产物名为 cms.jar：Dockerfile 与 deploy.sh 都按这个名字复制构建结果，
+            改名会同时破坏镜像构建，需一并调整-->
         <finalName>cms</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!--Lombok 只在编译期生成代码，不需要打进运行时 jar-->
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
             </plugin>
         </plugins>
     </build>
