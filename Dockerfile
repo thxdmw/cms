@@ -2,7 +2,7 @@
 # ============================
 # 第一阶段：使用 Maven 构建项目
 # ============================
-FROM maven:3.9.6-eclipse-temurin-8 AS builder
+FROM maven:3.9.9-eclipse-temurin-21 AS builder
 
 # 配置阿里云 Maven 镜像加速
 RUN mkdir -p /root/.m2 && cat > /root/.m2/settings.xml << 'EOF'
@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 # ============================
 # 第二阶段：运行阶段
 # ============================
-FROM eclipse-temurin:8-jre
+FROM eclipse-temurin:21-jre
 
 # 设置工作目录
 WORKDIR /app/cms

@@ -7,7 +7,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CachingConfigurerSupport;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,7 +31,7 @@ import java.time.Duration;
 @ConditionalOnProperty(prefix = "spring.cache", value = "type", havingValue = "redis", matchIfMissing = true)
 @Configuration
 @EnableCaching
-public class RedisConfig extends CachingConfigurerSupport {
+public class RedisConfig {
 
     @Bean
     public CacheManager cacheManager(RedisConnectionFactory factory) {
@@ -73,7 +72,6 @@ public class RedisConfig extends CachingConfigurerSupport {
      */
     @Bean
     public Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer() {
-        // 使用Jackson2JsonRedisSerializer来序列化和反序列化redis的value值
         Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(Object.class);
         ObjectMapper objectMapper = new ObjectMapper();
 

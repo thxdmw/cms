@@ -6,15 +6,15 @@
 
 | 检查项 | 结论 |
 |---|---|
-| Java 版本 | 1.8（本地 JDK 为 1.8.0_401），所有新代码必须 Java 8 兼容（禁止 `var`、Record、Text Block、switch 表达式） |
-| Spring Boot 版本 | 2.7.18 |
+| Java 版本 | 21（构建与运行均为 JDK 21），新代码可自由使用 `var`、Record、Text Block、switch 表达式等 Java 21 语法 |
+| Spring Boot 版本 | 3.5.16（Jakarta EE 9+ 命名空间，`jakarta.*` 而非 `javax.*`） |
 | 构建工具 | Maven，**单模块**（`packaging=jar`，无 `<modules>`） |
 | 当前模块划分 | 包级划分：`com.thx.module.{admin,agent,blog,file,tools}`，无 Maven 子模块边界 |
 | 数据库 | **MySQL**（不是 PostgreSQL）。生产环境固定 5.7（见 `docs/modules/platform/server-configuration.md`），本地开发机为 8.0.34。因此所有 SQL 必须按 **MySQL 5.7 兼容**编写（不能用 `SELECT ... SKIP LOCKED`、窗口函数、CTE 等 8.0 专属语法） |
 | ORM | MyBatis-Plus 3.5.5，Mapper XML 放在 `resources/mapper/*.xml`，也允许纯注解 Mapper（`file` 模块已是纯注解风格），全局 `id-type: auto` |
 | Schema 管理 | **没有 Flyway/Liquibase**，通过 `docs/modules/<模块>/*.sql` 手工安装脚本管理（`cms.sql`、`file_system.sql`），本次新增 `docs/modules/payment/schema.sql` 遵循同一约定，**不引入 Flyway** |
 | 鉴权 | **Apache Shiro**（不是 Spring Security，也不是 Sa-Token），Session 存储可切换 Redis/内存；免登录路径通过 `@AnonymousAccess` 注解 + `AnonymousPathScanner` 动态扫描注册，无需手工维护 URL 白名单 |
-| Redis | `spring-data-redis` 的 `RedisTemplate<String,Object>`（Jackson 序列化），**没有 Redisson**，Jedis 2.9.1（因 shiro-redis 兼容性锁定版本，不可升级） |
+| Redis | `spring-data-redis` 的 `RedisTemplate<String,Object>`（Jackson 序列化），**没有 Redisson**，Jedis 6.0.0（由 shiro-redis 3.3.1 传递引入；应用侧默认走 Lettuce 客户端） |
 | 统一返回体 | `com.thx.module.admin.vo.base.ResponseVo<T>`（`status/msg/data`），配套 `ResultUtil` 静态工厂；`ResponseStatus` 枚举提供常用状态码，但 `ResponseVo.error(int status, String msg)` 支持任意自定义 HTTP 语义状态码 |
 | 全局异常处理 | `ExceptionHandleController`（`@ControllerAdvice`）处理 `ApiException`/Shiro 异常等全局兜底；但项目已确立"**独立模块可以有自己的 `@RestControllerAdvice`**"先例——`file` 模块的 `FileExceptionHandler` 用 `basePackages` 限定只处理自己模块的异常，返回精确 HTTP 状态码。Payment 模块复用这一先例 |
 | ID 生成 | 无 Snowflake/雪花算法组件，只有 `UUIDUtil`（UUID/短 UUID）。业务单号历史上依赖 `DateUtil` 的时间戳格式常量拼接 |

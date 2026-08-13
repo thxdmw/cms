@@ -4,7 +4,7 @@ import com.thx.module.gamesave.exception.GameSaveException;
 import com.thx.module.gamesave.interceptor.GameDeviceTokenInterceptor;
 import lombok.experimental.UtilityClass;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 /** 从当前 HTTP 请求中解析已认证的 GameSave 调用方上下文。 */
 @UtilityClass

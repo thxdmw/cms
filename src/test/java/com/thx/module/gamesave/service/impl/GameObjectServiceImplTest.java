@@ -97,7 +97,7 @@ class GameObjectServiceImplTest {
                 .thenReturn(new FileUploadResult("file-2", "save.dat", null));
         when(fileSystemService.get(eq("file-2"), any()))
                 .thenReturn(fileInfo("file-2", expectedHash, content.length));
-        doThrow(databaseFailure).when(gameObjectMapper).insert(any());
+        doThrow(databaseFailure).when(gameObjectMapper).insert(any(GameObject.class));
 
         IllegalStateException actual = assertThrows(
                 IllegalStateException.class,
@@ -123,7 +123,7 @@ class GameObjectServiceImplTest {
                 .thenReturn(new FileUploadResult("file-3", "save.dat", null));
         when(fileSystemService.get(eq("file-3"), any()))
                 .thenReturn(fileInfo("file-3", expectedHash, content.length));
-        doThrow(databaseFailure).when(gameObjectMapper).insert(any());
+        doThrow(databaseFailure).when(gameObjectMapper).insert(any(GameObject.class));
         doThrow(new IllegalStateException("补偿删除失败"))
                 .when(fileSystemService).delete(eq("file-3"), any());
 

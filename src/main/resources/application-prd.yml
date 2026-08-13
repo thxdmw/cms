@@ -13,18 +13,19 @@ spring:
         login-password: ${DRUID_STAT_PASSWORD}
         allow:
         deny:
-  redis:
-    host: ${SPRING_REDIS_HOST}
-    port: ${SPRING_REDIS_PORT}
-    password: ${SPRING_REDIS_PASSWORD}
-    timeout: 5000
-    jedis:
-      pool:
-        max-idle: 8
-        min-idle: 0
-        max-active: 8
-        max-wait: -1
-    database: 6
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST}
+      port: ${SPRING_REDIS_PORT}
+      password: ${SPRING_REDIS_PASSWORD}
+      timeout: 5000
+      jedis:
+        pool:
+          max-idle: 8
+          min-idle: 0
+          max-active: 8
+          max-wait: -1
+      database: 6
   mail:
     host: smtp.qq.com
     port: 587

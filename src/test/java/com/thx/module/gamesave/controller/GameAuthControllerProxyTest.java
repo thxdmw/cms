@@ -44,7 +44,7 @@ class GameAuthControllerProxyTest {
 
     private String clientIp(GameAuthController controller, MockHttpServletRequest request) throws Exception {
         Method method = GameAuthController.class.getDeclaredMethod(
-                "clientIp", javax.servlet.http.HttpServletRequest.class);
+                "clientIp", jakarta.servlet.http.HttpServletRequest.class);
         method.setAccessible(true);
         return (String) method.invoke(controller, request);
     }

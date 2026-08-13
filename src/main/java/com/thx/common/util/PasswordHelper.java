@@ -6,7 +6,7 @@ import lombok.experimental.UtilityClass;
 import org.apache.shiro.crypto.RandomNumberGenerator;
 import org.apache.shiro.crypto.SecureRandomNumberGenerator;
 import org.apache.shiro.crypto.hash.SimpleHash;
-import org.apache.shiro.util.ByteSource;
+import org.apache.shiro.lang.util.ByteSource;
 
 /**
  * 密码加密工具类，负责按 Shiro 约定的散列算法对用户密码做加盐哈希。

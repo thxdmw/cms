@@ -16,6 +16,7 @@ import com.thx.module.gamesave.model.GameLibrary;
 import com.thx.module.gamesave.model.GameObject;
 import com.thx.module.gamesave.model.GameSnapshotFile;
 import com.thx.module.gamesave.model.GameSnapshot;
+import com.thx.module.gamesave.model.GameSnapshotRoot;
 import com.thx.module.gamesave.model.GameSyncHead;
 import com.thx.module.gamesave.service.GameObjectService;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,8 +129,8 @@ class GameSnapshotServiceImplTest {
         assertEquals(0, result.getChangedFileCount());
         assertFalse(result.isCreated());
 
-        verify(gameSnapshotMapper, never()).insert(any());
-        verify(gameSnapshotFileMapper, never()).insert(any());
+        verify(gameSnapshotMapper, never()).insert(any(GameSnapshot.class));
+        verify(gameSnapshotFileMapper, never()).insert(any(GameSnapshotFile.class));
         verify(gameObjectMapper, never()).incrementReference(anyString(), anyString());
         verify(gameSyncHeadMapper, never()).advanceHeadCas(anyString(), anyString(), any(), anyString());
     }
@@ -176,8 +177,8 @@ class GameSnapshotServiceImplTest {
 
         assertTrue(result.isCreated());
         assertEquals(0, result.getChangedFileCount());
-        verify(gameSnapshotRootMapper).insert(any());
-        verify(gameSnapshotMapper).insert(any());
+        verify(gameSnapshotRootMapper).insert(any(GameSnapshotRoot.class));
+        verify(gameSnapshotMapper).insert(any(GameSnapshot.class));
     }
 
     @Test

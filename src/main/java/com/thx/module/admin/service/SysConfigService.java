@@ -3,8 +3,8 @@ package com.thx.module.admin.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.thx.module.admin.entity.SysConfig;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 /**

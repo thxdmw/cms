@@ -6,7 +6,7 @@ import com.thx.module.admin.entity.BizArticle;
 import com.thx.module.admin.vo.ArticleConditionVo;
 import com.thx.module.blog.vo.BizArticleSearchVo;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**

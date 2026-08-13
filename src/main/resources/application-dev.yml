@@ -17,11 +17,12 @@ spring:
         login-password: ${DRUID_STAT_PASSWORD:123456}
         allow:
         deny:
-  redis:
-    host: localhost
-    port: 6379
-    password:
-    timeout: 5000
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      timeout: 5000
   devtools:
     restart:
       enabled: true

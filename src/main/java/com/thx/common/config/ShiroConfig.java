@@ -1,6 +1,5 @@
 package com.thx.common.config;
 
-import at.pollux.thymeleaf.shiro.dialect.ShiroDialect;
 import cn.hutool.core.util.StrUtil;
 import com.thx.common.holder.SpringContextHolder;
 import com.thx.common.shiro.MyShiroRealm;
@@ -30,10 +29,9 @@ import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
-import javax.annotation.PostConstruct;
-import javax.servlet.Filter;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.Filter;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -75,16 +73,6 @@ public class ShiroConfig {
     @Bean
     public static LifecycleBeanPostProcessor getLifecycleBeanPostProcessor() {
         return new LifecycleBeanPostProcessor();
-    }
-
-    /**
-     * ShiroDialect，为了在thymeleaf里使用shiro的标签的bean
-     *
-     * @return
-     */
-    @Bean
-    public ShiroDialect shiroDialect() {
-        return new ShiroDialect();
     }
 
     /**

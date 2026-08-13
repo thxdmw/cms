@@ -11,7 +11,7 @@ import com.thx.module.admin.service.SysConfigService;
 import com.thx.module.admin.service.UserService;
 import com.thx.module.admin.vo.CurrentUserVo;
 import com.thx.module.admin.vo.base.ResponseVo;
-import io.springboot.captcha.utils.CaptchaUtil;
+import com.pig4cloud.captcha.utils.CaptchaJakartaUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.SecurityUtils;
@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
@@ -91,9 +91,9 @@ public class SystemController {
     public ResponseVo login(HttpServletRequest request, String username, String password, String verification,
                             @RequestParam(value = "rememberMe", defaultValue = "0") Integer rememberMe) {
         //判断验证码
-        if (!CaptchaUtil.ver(verification, request)) {
+        if (!CaptchaJakartaUtil.ver(verification, request)) {
             // 清除session中的验证码
-            CaptchaUtil.clear(request);
+            CaptchaJakartaUtil.clear(request);
             return ResultUtil.error("验证码错误！");
         }
         UsernamePasswordToken token = new UsernamePasswordToken(username, password);

@@ -69,7 +69,7 @@ class FileCleanupServiceImplTest {
 
         verify(objectStorageClient).delete("public-assets", "apps/cms/x.png");
         verify(fileAssetMapper, times(2)).update(any(FileAsset.class), any());
-        verify(storageCleanupTaskMapper, never()).insert(any());
+        verify(storageCleanupTaskMapper, never()).insert(any(StorageCleanupTask.class));
     }
 
     @Test

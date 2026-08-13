@@ -1,14 +1,14 @@
 package com.thx.module.admin.controller.auth;
 
-import io.springboot.captcha.ArithmeticCaptcha;
-import io.springboot.captcha.utils.CaptchaUtil;
+import com.pig4cloud.captcha.ArithmeticCaptcha;
+import com.pig4cloud.captcha.utils.CaptchaJakartaUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
@@ -32,6 +32,6 @@ public class KaptchaController {
     public void getCaptchaCode(HttpServletRequest request, HttpServletResponse response) throws IOException {
         ArithmeticCaptcha captcha = new ArithmeticCaptcha(130, 48);
         captcha.setLen(2);
-        CaptchaUtil.out(captcha, request, response);
+        CaptchaJakartaUtil.out(captcha, request, response);
     }
 }

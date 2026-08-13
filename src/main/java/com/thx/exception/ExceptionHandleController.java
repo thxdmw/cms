@@ -10,8 +10,8 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * 全局异常统一处理，覆盖走页面跳转的传统控制器和走 JSON 的 REST 接口两类场景：
@@ -26,7 +26,7 @@ public class ExceptionHandleController {
     /** Shiro 鉴权失败（无权限访问），转发到 403 错误页 */
     @ExceptionHandler(AuthorizationException.class)
     public String handleAuth(HttpServletRequest request) {
-        request.setAttribute("javax.servlet.error.status_code", ResponseStatus.FORBIDDEN.getCode());
+        request.setAttribute("jakarta.servlet.error.status_code", ResponseStatus.FORBIDDEN.getCode());
         return "forward:/error";
     }
 
@@ -34,7 +34,7 @@ public class ExceptionHandleController {
     @ExceptionHandler(Exception.class)
     public String handleException(Exception e, HttpServletRequest request) {
         log.error("URI: {} 捕获异常: {}", request.getRequestURI(), e.getMessage(), e);
-        request.setAttribute("javax.servlet.error.status_code", ResponseStatus.ERROR.getCode());
+        request.setAttribute("jakarta.servlet.error.status_code", ResponseStatus.ERROR.getCode());
         return "forward:/error";
     }
 

@@ -25,7 +25,7 @@
 后端：Spring Boot、Apache Shiro、MyBatis-Plus、Alibaba Druid、Redis、MySQL、MinIO、Apache Tika<br/>
 前端：Vue 3、Element Plus（前台博客 `static/blog-app/`、后台管理 `static/admin-app/` 均为纯静态文件，无需构建工具，改完即生效）<br/>
 
-![JDK](https://img.shields.io/badge/JDK-1.8-green.svg)
+![JDK](https://img.shields.io/badge/JDK-21-green.svg)
 ![Maven](https://img.shields.io/badge/Maven-3.3.9-green.svg)
 ![MySQL](https://img.shields.io/badge/MySQL-5.7-green.svg)
 ![Redis](https://img.shields.io/badge/Redis-3.0.503-green.svg)
