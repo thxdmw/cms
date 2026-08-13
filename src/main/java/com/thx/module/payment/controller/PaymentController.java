@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 支付 REST API。当前项目内部业务模块统一直接注入 {@link PaymentFacade} 走 Java 方法调用，
  * 不会自己调这套 HTTP 接口（同一 JVM 内不应该自调用 HTTP）；这里存在的意义是为未来 Payment
- * 拆分为独立服务预留对外契约。鉴权沿用项目现有 Shiro 会话机制，服务间身份认证是拆分前必须
+ * 拆分为独立服务预留对外契约。鉴权沿用项目现有 Sa-Token 会话机制，服务间身份认证是拆分前必须
  * 补齐的事项，见 docs/payment-architecture.md。
  * <p>
  * Controller 只做参数接收与 DTO 转换，不直接操作 Mapper/AlipayClient，不直接修改订单状态。

@@ -2,7 +2,6 @@ package com.thx.module.admin.service.impl;
 
 import cn.hutool.core.io.file.FileNameUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -19,6 +18,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
@@ -95,7 +100,43 @@ public class BizServerFileServiceImpl extends ServiceImpl<BizServerFileMapper, B
             throw new IllegalArgumentException("该文件不支持在线预览");
         }
         String url = fileSystemService.getDownloadUrl(record.getFileId(), caller);
-        return HttpUtil.get(url);
+        return httpGet(url);
+    }
+
+    /**
+     * 按 URL 拉取文本内容，供在线预览使用。
+     * <p>
+     * 原先使用 hutool 的 {@code HttpUtil.get()}，为把依赖收敛到 {@code hutool-core}
+     * （{@code HttpUtil} 属于 {@code hutool-http} 模块），改用 JDK 内置的
+     * {@link HttpClient}，不引入任何新依赖。URL 由 {@code fileSystemService} 内部签发，
+     * 不来自用户直接输入。
+     *
+     * @param url 目标地址
+     * @return 响应体文本
+     */
+    private String httpGet(String url) {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(30))
+                .GET()
+                .build();
+        try {
+            HttpResponse<String> response = client.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new IllegalStateException("读取文件内容失败，HTTP 状态码：" + response.statusCode());
+            }
+            return response.body();
+        } catch (IOException e) {
+            throw new IllegalStateException("读取文件内容失败：" + e.getMessage(), e);
+        } catch (InterruptedException e) {
+            // 复位中断标记，避免吞掉中断信号
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("读取文件内容被中断", e);
+        }
     }
 
     @Override

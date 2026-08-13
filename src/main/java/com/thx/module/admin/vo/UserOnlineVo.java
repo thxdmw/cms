@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * 在线用户展示对象，由 Shiro SessionDAO 里的活跃 Session 转换而来
+ * 在线用户展示对象，由 Sa-Token 账号会话下的在线终端转换而来
  * （见 UserServiceImpl#selectOnlineUsers），供后台"在线用户"页面查看/强制下线。
  */
 @Data

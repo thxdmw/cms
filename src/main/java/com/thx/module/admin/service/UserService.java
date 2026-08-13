@@ -11,7 +11,7 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 系统用户服务，涵盖用户的增删改查、角色分配，以及基于 Shiro + Redis Session 的在线用户查询/踢出。
+ * 系统用户服务，涵盖用户的增删改查、角色分配，以及基于 Sa-Token + Redis 会话的在线用户查询/踢出。
  */
 public interface UserService extends IService<User> {
 
@@ -82,7 +82,7 @@ public interface UserService extends IService<User> {
     void addAssignRole(String userId, List<String> roleIds);
 
     /**
-     * 查询当前在线用户列表：遍历 Shiro SessionDAO 中的活跃 Session，剔除已被标记踢出（kickout）的会话，
+     * 查询当前在线用户列表：遍历 Sa-Token 中所有账号会话下的在线终端，
      * 并将 Session 中的登录信息转换为展示用的 VO；支持按用户名做包含匹配过滤。
      *
      * @param userOnlineVo 查询条件：username 不为空时按用户名包含匹配过滤
@@ -93,7 +93,7 @@ public interface UserService extends IService<User> {
 
     /**
      * 强制踢出指定会话：在该 Session 上标记 kickout 属性（使其后续请求被判定为已下线），
-     * 并将该会话 id 从 Shiro Redis 缓存中该用户名下的会话队列中移除。
+     * Sa-Token 会自动把该终端从账号会话中移除。
      *
      * @param sessionId 会话 id
      * @param username  会话所属用户名，用于定位 Redis 缓存中的会话队列
@@ -110,8 +110,8 @@ public interface UserService extends IService<User> {
     ResponseVo registerNewUser(User userForm, String confirmPassword);
 
     /**
-     * 修改当前登录用户的密码：校验两次新密码一致、旧密码正确后更新密码，并清除该用户的 Shiro 登录缓存
-     * （否则旧密码在 Shiro 的认证缓存过期前依然能登录成功）。
+     * 修改当前登录用户的密码：校验两次新密码一致、旧密码正确后更新密码，并强制该账号所有端下线
+     * （必须用新密码重新登录）。
      */
     ResponseVo changePassword(ChangePasswordVo changePasswordVo);
 

@@ -11,7 +11,7 @@ import java.util.List;
 
 /**
  * 系统用户（后台管理员/操作人员），通过 UserRole 关联角色。password/salt 配合
- * {@link com.thx.common.util.PasswordHelper} 做加盐哈希，getCredentialsSalt() 是 Shiro
+ * {@link com.thx.common.util.PasswordHelper} 做加盐哈希，getCredentialsSalt() 是
  * 校验密码时实际使用的盐值来源，不是 salt 字段本身。
  */
 @Data

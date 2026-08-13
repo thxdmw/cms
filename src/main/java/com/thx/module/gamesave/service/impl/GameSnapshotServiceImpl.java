@@ -1,6 +1,6 @@
 package com.thx.module.gamesave.service.impl;
 
-import com.alibaba.fastjson.JSON;
+import com.thx.common.util.JsonUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.thx.common.util.UUIDUtil;
 import com.thx.module.gamesave.context.GameCallerContext;
@@ -236,8 +236,8 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
                     .setPathTemplate(normalizeNullableText(root.getPathTemplate()))
                     .setSource(normalizeSource(root.getSource()))
                     .setConfidence(root.getConfidence() == null ? 0 : root.getConfidence())
-                    .setIncludePatternsJson(JSON.toJSONString(normalizePatterns(root.getIncludePatterns())))
-                    .setExcludePatternsJson(JSON.toJSONString(normalizePatterns(root.getExcludePatterns()))));
+                    .setIncludePatternsJson(JsonUtil.toJson(normalizePatterns(root.getIncludePatterns())))
+                    .setExcludePatternsJson(JsonUtil.toJson(normalizePatterns(root.getExcludePatterns()))));
         }
 
         for (ResolvedSnapshotFile resolved : resolvedFiles) {
@@ -448,7 +448,7 @@ public class GameSnapshotServiceImpl implements GameSnapshotService {
         if (json == null || json.trim().isEmpty()) {
             return Collections.emptyList();
         }
-        List<String> patterns = JSON.parseArray(json, String.class);
+        List<String> patterns = JsonUtil.parseList(json, String.class);
         return patterns == null ? Collections.emptyList() : patterns;
     }
 

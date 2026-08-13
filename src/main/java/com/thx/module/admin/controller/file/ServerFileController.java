@@ -12,7 +12,7 @@ import com.thx.module.admin.vo.base.ResponseVo;
 import com.thx.module.file.context.FileCallerContext;
 import com.thx.module.file.context.FileCallerContextFactory;
 import lombok.AllArgsConstructor;
-import org.apache.shiro.SecurityUtils;
+import com.thx.common.security.UserContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -114,7 +114,7 @@ public class ServerFileController {
     }
 
     private User currentUser() {
-        return (User) SecurityUtils.getSubject().getPrincipal();
+        return UserContext.getCurrentUser();
     }
 
     private FileCallerContext callerContext(HttpServletRequest request, User user) {

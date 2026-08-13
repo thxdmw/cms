@@ -8,12 +8,12 @@ import java.util.Set;
 
 /**
  * 权限（资源）服务。权限按 type 区分为 0-目录、1-菜单、2-按钮，通过 parentId 形成树形结构，
- * 是 Shiro 鉴权体系中权限标识（perms）的来源。
+ * 是 Sa-Token 鉴权体系中权限标识（perms）的来源。
  */
 public interface PermissionService extends IService<Permission> {
 
     /**
-     * 查询用户（经由所属角色）拥有的权限标识（perms）集合，供 Shiro 鉴权使用。
+     * 查询用户（经由所属角色）拥有的权限标识（perms）集合，供 Sa-Token 鉴权使用。
      *
      * @param userId 用户id
      * @return 权限标识集合

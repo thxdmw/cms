@@ -3,7 +3,7 @@ package com.thx.module.blog.controller;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.lang.Validator;
-import cn.hutool.http.HtmlUtil;
+import com.thx.common.util.HtmlSanitizer;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.thx.common.util.*;
@@ -79,9 +79,9 @@ public class BlogApiController {
             return ResultUtil.error("邮箱格式不正确");
         }
         Date date = new Date();
-        comment.setNickname(HtmlUtil.filter(comment.getNickname()));
-        comment.setContent(HtmlUtil.filter(comment.getContent()));
-        comment.setIp(HtmlUtil.filter(IpUtil.getIpAddr(request)));
+        comment.setNickname(HtmlSanitizer.filter(comment.getNickname()));
+        comment.setContent(HtmlSanitizer.filter(comment.getContent()));
+        comment.setIp(HtmlSanitizer.filter(IpUtil.getIpAddr(request)));
         comment.setCreateTime(date);
         comment.setUpdateTime(date);
         if (StrUtil.isNotBlank(comment.getQq())) {

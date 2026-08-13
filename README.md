@@ -1,6 +1,6 @@
 # 内容管理系统
 
-### 内容管理系统，后端采用 Spring Boot + Apache Shiro + MyBatis-Plus，前台博客和后台管理均为 Vue 3 + Element Plus 单页应用(附带权限管理)，是搭建博客、网站的不二之选。
+### 内容管理系统，后端采用 Spring Boot + Sa-Token + MyBatis-Plus，前台博客和后台管理均为 Vue 3 + Element Plus 单页应用(附带权限管理)，是搭建博客、网站的不二之选。
 
 ## 文档目录
 
@@ -22,7 +22,7 @@
 
 ## 技术栈
 
-后端：Spring Boot、Apache Shiro、MyBatis-Plus、Alibaba Druid、Redis、MySQL、MinIO、Apache Tika<br/>
+后端：Spring Boot、Sa-Token、MyBatis-Plus、Alibaba Druid、Redis、MySQL、MinIO、Apache Tika<br/>
 前端：Vue 3、Element Plus（前台博客 `static/blog-app/`、后台管理 `static/admin-app/` 均为纯静态文件，无需构建工具，改完即生效）<br/>
 
 ![JDK](https://img.shields.io/badge/JDK-21-green.svg)
@@ -76,7 +76,7 @@
 │   │   └── com
 │   │       └── thx
 │   │           ├── SpringbootApplication.java 项目启动类
-│   │           ├── common     基础设施层：注解、拦截器、日志、Shiro 集成、通用工具类等，
+│   │           ├── common     基础设施层：注解、拦截器、日志、Sa-Token 集成、通用工具类等，
 │   │           │              被各业务 module 依赖，不反向依赖任何 module
 │   │           ├── infra      项目级基础设施组件（邮件发送、WebSocket 推送、匿名路径扫描等）
 │   │           ├── enums      全局枚举（响应状态码、站点配置 key 等）
@@ -89,7 +89,7 @@
 │   │               │          嗅探，有自己的响应体/异常处理，是有意保持松耦合的模块边界
 │   │               ├── tools  独立小工具（PDF 转 Word、OCR 识别等），部分接口对接外部 Python 服务
 │   │               └── agent  供外部 AI Agent/自动化客户端调用的 API 网关层（/agent/api/**），
-│   │                          走独立的 X-API-Key 鉴权，不走 Shiro 会话
+│   │                          走独立的 X-API-Key 鉴权，不走 Sa-Token 会话
 │   └── resources
 │       ├── application-dev.yml 开发环境配置文件
 │       ├── application-prd.yml 生产环境配置文件

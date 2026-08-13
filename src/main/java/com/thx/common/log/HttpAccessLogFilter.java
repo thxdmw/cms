@@ -6,8 +6,7 @@ import com.thx.common.config.properties.HttpLoggingProperties;
 import com.thx.module.admin.entity.User;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.shiro.SecurityUtils;
-import org.apache.shiro.subject.Subject;
+import com.thx.common.security.UserContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -246,16 +245,12 @@ public class HttpAccessLogFilter extends OncePerRequestFilter {
 
     private String resolveCaller() {
         try {
-            Subject subject = SecurityUtils.getSubject();
-            Object principal = subject == null ? null : subject.getPrincipal();
-            if (principal instanceof User) {
-                return ((User) principal).getUsername();
-            }
-            if (principal instanceof String) {
-                return (String) principal;
+            User user = UserContext.getCurrentUser();
+            if (user != null) {
+                return user.getUsername();
             }
         } catch (Exception ignored) {
-            // 匿名访问时 Shiro 可能尚未创建或绑定 Subject，此处不影响主请求。
+            // 匿名访问时没有登录态，取不到当前用户属正常情况，不影响主请求。
         }
         return null;
     }

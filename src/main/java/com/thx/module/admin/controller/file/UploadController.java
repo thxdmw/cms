@@ -1,6 +1,5 @@
 package com.thx.module.admin.controller.file;
 
-import com.alibaba.fastjson.JSONObject;
 import com.thx.enums.ResponseStatus;
 import com.thx.module.admin.entity.User;
 import com.thx.module.admin.vo.UploadResponse;
@@ -12,12 +11,15 @@ import com.thx.module.file.vo.FileUploadResult;
 import cn.hutool.core.io.file.FileNameUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.shiro.SecurityUtils;
+import com.thx.common.security.UserContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * 后台文件上传接口，实际存储委托给 file 模块的 {@link FileSystemService}，
@@ -69,8 +71,8 @@ public class UploadController {
      */
     @ResponseBody
     @RequestMapping(value = "/uploadForEditor", method = RequestMethod.POST)
-    public JSONObject uploadEdFile(@RequestParam("editormd-image-file") MultipartFile file, HttpServletRequest request) {
-        JSONObject jsonObject = new JSONObject();
+    public Map<String, Object> uploadEdFile(@RequestParam("editormd-image-file") MultipartFile file, HttpServletRequest request) {
+        Map<String, Object> jsonObject = new LinkedHashMap<>();
         try {
             String userId = currentUserId();
             FileCallerContext caller = FileCallerContextFactory.forCms(userId, request.getRemoteAddr());
@@ -92,7 +94,7 @@ public class UploadController {
     }
 
     private String currentUserId() {
-        User user = (User) SecurityUtils.getSubject().getPrincipal();
+        User user = UserContext.getCurrentUser();
         return user.getUserId();
     }
 

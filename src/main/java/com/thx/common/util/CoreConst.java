@@ -20,11 +20,6 @@ public class CoreConst {
     public static final String TOP_MENU_ID = "0";
     /** 顶层菜单展示名称 */
     public static final String TOP_MENU_NAME = "顶层菜单";
-    /** Shiro Session 在 Redis 里的 key 前缀 */
-    public static final String SHIRO_REDIS_SESSION_PREFIX = "pb_cms:session:";
-    /** Shiro 授权缓存在 Redis 里的缓存名 */
-    public static final String SHIRO_REDIS_CACHE_NAME = "shiro_pb_cms";
-
     /** 后台静态资源/路由前缀 */
     public static final String ADMIN_PREFIX = "admin/";
 

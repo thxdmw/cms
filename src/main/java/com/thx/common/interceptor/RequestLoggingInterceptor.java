@@ -4,8 +4,7 @@ import com.thx.common.log.HttpAccessLogFilter;
 import com.thx.module.admin.entity.User;
 import com.thx.module.file.context.FileCallerContext;
 import com.thx.module.file.interceptor.FileAuthInterceptor;
-import org.apache.shiro.SecurityUtils;
-import org.apache.shiro.subject.Subject;
+import com.thx.common.security.UserContext;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -50,17 +49,12 @@ public class RequestLoggingInterceptor implements HandlerInterceptor {
         }
 
         try {
-            Subject subject = SecurityUtils.getSubject();
-            Object principal = subject == null ? null : subject.getPrincipal();
-            if (principal instanceof User && ((User) principal).getUsername() != null) {
-                request.setAttribute(
-                        HttpAccessLogFilter.CALLER_ATTRIBUTE,
-                        "user:" + ((User) principal).getUsername());
-            } else if (principal instanceof String) {
-                request.setAttribute(HttpAccessLogFilter.CALLER_ATTRIBUTE, "user:" + principal);
+            User user = UserContext.getCurrentUser();
+            if (user != null && user.getUsername() != null) {
+                request.setAttribute(HttpAccessLogFilter.CALLER_ATTRIBUTE, "user:" + user.getUsername());
             }
         } catch (Exception ignored) {
-            // 匿名访问时当前线程可能没有绑定 Shiro Subject，此处不影响主请求。
+            // 匿名访问时没有登录态，取不到当前用户属正常情况，不影响主请求。
         }
     }
 }

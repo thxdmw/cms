@@ -12,7 +12,7 @@ import com.thx.module.admin.vo.base.PageResultVo;
 import com.thx.module.admin.vo.base.ResponseVo;
 import lombok.AllArgsConstructor;
 import cn.hutool.core.util.StrUtil;
-import org.apache.shiro.SecurityUtils;
+import com.thx.common.security.UserContext;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -109,12 +109,12 @@ public class CommentController {
     }
 
     /**
-     * 补全评论的操作人相关字段：从当前 Shiro 登录用户与当前请求中提取 userId/昵称/邮箱/头像/IP 写入评论对象，
+     * 补全评论的操作人相关字段：从当前登录用户与当前请求中提取 userId/昵称/邮箱/头像/IP 写入评论对象，
      * 并将评论状态置为有效。供 {@link #edit} 与 {@link #audit} 追加回复时复用。
      */
     private void completeComment(BizComment comment) {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
-        User user = (User) SecurityUtils.getSubject().getPrincipal();
+        User user = UserContext.getCurrentUser();
         comment.setUserId(user.getUserId());
         comment.setNickname(user.getNickname());
         comment.setEmail(user.getEmail());

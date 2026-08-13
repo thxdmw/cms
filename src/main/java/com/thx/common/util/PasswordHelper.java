@@ -3,68 +3,95 @@ package com.thx.common.util;
 
 import com.thx.module.admin.entity.User;
 import lombok.experimental.UtilityClass;
-import org.apache.shiro.crypto.RandomNumberGenerator;
-import org.apache.shiro.crypto.SecureRandomNumberGenerator;
-import org.apache.shiro.crypto.hash.SimpleHash;
-import org.apache.shiro.lang.util.ByteSource;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 /**
- * 密码加密工具类，负责按 Shiro 约定的散列算法对用户密码做加盐哈希。
+ * <b>历史</b>密码散列算法（md5 + 2 次迭代 + 加盐）的兼容实现，<b>仅用于校验存量用户</b>。
  * <p>
- * 这里的算法名（md5）和迭代次数（2）必须与 {@link com.thx.common.shiro.MyShiroRealm}
- * 中 {@code HashedCredentialsMatcher} 的配置保持一致——本类是"写入侧"（注册/改密时
- * 生成密文），MyShiroRealm 是"校验侧"（登录时比对密文），两处任一方单独改动都会导致
- * 已有用户无法登录，修改时务必同步调整。
+ * <b>请勿在新代码中使用本类生成密码。</b>md5 是快速哈希，不适合存储密码。
+ * 新密码一律通过 {@link com.thx.common.security.PasswordService#encode(String)} 用 BCrypt 生成；
+ * 存量用户在下次登录成功时会被透明升级为 BCrypt，升级完成后本类将不再被触及。
  * <p>
- * 实际参与哈希运算的盐值并不是 {@link User#getSalt()} 本身，而是
- * {@link User#getCredentialsSalt()}（用户名 + 固定字符串 + 随机 salt 的组合），
- * 这样即使两个用户随机生成了相同的 salt，最终参与运算的盐也会因用户名不同而不同。
+ * 本类原先依赖 Shiro 的 {@code SimpleHash} 实现散列。为了让密码体系与鉴权框架解耦
+ * （便于更换鉴权框架），这里改用 JDK 自带的 {@link MessageDigest} 重新实现了完全等价的算法：
+ * Shiro 的 {@code SimpleHash(algorithm, source, salt, iterations)} 语义是
+ * 先 {@code digest(salt_bytes + password_bytes)}，再把结果反复 digest（共 iterations 次），
+ * 最后转小写十六进制。下面的实现与之逐字节一致，因此<b>历史密文可以照常校验通过</b>。
+ * <p>
+ * 实际参与运算的盐不是 {@link User#getSalt()} 本身，而是
+ * {@link User#getCredentialsSalt()}（用户名 + 固定字符串 + 随机 salt 的组合）。
  */
 @UtilityClass
 public class PasswordHelper {
-    /** Shiro 提供的安全随机数生成器，用于生成每个用户独立的随机 salt。 */
-    private static final RandomNumberGenerator RANDOM_NUMBER_GENERATOR = new SecureRandomNumberGenerator();
-    /** 散列算法名，需与 MyShiroRealm 中 HashedCredentialsMatcher 的配置保持一致。 */
-    private static final String ALGORITHM_NAME = "md5";
-    /** 散列迭代次数，需与 MyShiroRealm 中 HashedCredentialsMatcher 的配置保持一致。 */
+
+    /** 历史散列算法名。 */
+    private static final String ALGORITHM_NAME = "MD5";
+    /** 历史散列迭代次数。 */
     private static final int HASH_ITERATIONS = 2;
+    /** 十六进制字符表，用于把摘要字节转成与 Shiro {@code toHex()} 一致的小写十六进制串。 */
+    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
 
     /**
-     * 为用户生成随机 salt 并对其明文密码（{@code user.getPassword()} 中当前存放的原始密码）
-     * 做加盐哈希，哈希结果会直接覆盖回 {@code user.getPassword()}，随机 salt 写入
-     * {@code user.getSalt()}。调用后应将 user 的 password 和 salt 一并持久化。
+     * 用历史算法校验明文密码是否与用户存储的旧密文匹配。
      *
-     * @param user 待加密密码的用户，密码字段需先填入明文
+     * @param user        用户（需含 username、salt 与旧格式 password）
+     * @param rawPassword 明文密码
+     * @return 是否匹配
      */
-    public static void encryptPassword(User user) {
-        user.setSalt(RANDOM_NUMBER_GENERATOR.nextBytes().toHex());
-        String newPassword = new SimpleHash(ALGORITHM_NAME, user.getPassword(), ByteSource.Util.bytes(user.getCredentialsSalt()), HASH_ITERATIONS).toHex();
-        user.setPassword(newPassword);
+    public static boolean matchesLegacy(User user, String rawPassword) {
+        if (user == null || user.getPassword() == null || rawPassword == null) {
+            return false;
+        }
+        String computed = legacyHash(rawPassword, user.getCredentialsSalt());
+        // 使用恒定时间比较，避免通过响应时间差推断密文内容
+        return MessageDigest.isEqual(
+                computed.getBytes(StandardCharsets.UTF_8),
+                user.getPassword().getBytes(StandardCharsets.UTF_8));
     }
 
     /**
-     * 使用用户当前的 salt，对 {@code user.getPassword()} 中的明文密码做同样的加盐哈希运算，
-     * 但不修改 user 对象，仅返回计算结果。常用于"输入的原密码是否正确"这类校验场景
-     * （将计算结果与数据库中已存的密文比较）。
+     * 按历史算法计算散列值：md5(salt + password) 之后再迭代 md5 共 {@link #HASH_ITERATIONS} 次。
      *
-     * @param user 用户，密码字段需为待校验的明文，salt 字段需为该用户已持久化的 salt
-     * @return 加盐哈希后的密文
+     * @param rawPassword 明文密码
+     * @param salt        组合盐（{@link User#getCredentialsSalt()}）
+     * @return 小写十六进制散列串
      */
-    public static String getPassword(User user) {
-        return new SimpleHash(ALGORITHM_NAME, user.getPassword(), ByteSource.Util.bytes(user.getCredentialsSalt()), HASH_ITERATIONS).toHex();
+    private static String legacyHash(String rawPassword, String salt) {
+        MessageDigest digest;
+        try {
+            digest = MessageDigest.getInstance(ALGORITHM_NAME);
+        } catch (NoSuchAlgorithmException e) {
+            // MD5 是 JDK 强制要求实现的算法，正常环境不会走到这里
+            throw new IllegalStateException("当前 JDK 不支持 " + ALGORITHM_NAME, e);
+        }
+        if (salt != null) {
+            digest.update(salt.getBytes(StandardCharsets.UTF_8));
+        }
+        byte[] hashed = digest.digest(rawPassword.getBytes(StandardCharsets.UTF_8));
+        // Shiro 的迭代语义：第 1 次已在上面完成，剩余 iterations-1 次对上一轮结果再做摘要
+        for (int i = 1; i < HASH_ITERATIONS; i++) {
+            digest.reset();
+            hashed = digest.digest(hashed);
+        }
+        return toHex(hashed);
     }
 
     /**
-     * 本地手工验证用的临时入口：生成一个用户名 admin、密码 123456 的加密结果并打印，
-     * 便于开发时快速得到一条可直接写入数据库的密文+salt，非业务调用入口。
+     * 把字节数组转为小写十六进制字符串，与 Shiro {@code Hash.toHex()} 输出一致。
      *
-     * @param args 未使用
+     * @param bytes 摘要字节
+     * @return 小写十六进制串
      */
-    public static void main(String[] args) {
-        User user = new User();
-        user.setUsername("admin");
-        user.setPassword("123456");
-        encryptPassword(user);
-        System.out.println(user);
+    private static String toHex(byte[] bytes) {
+        char[] chars = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int v = bytes[i] & 0xFF;
+            chars[i * 2] = HEX_CHARS[v >>> 4];
+            chars[i * 2 + 1] = HEX_CHARS[v & 0x0F];
+        }
+        return new String(chars);
     }
 }

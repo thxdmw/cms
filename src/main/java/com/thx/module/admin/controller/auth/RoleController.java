@@ -2,7 +2,6 @@ package com.thx.module.admin.controller.auth;
 
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.thx.common.shiro.MyShiroRealm;
 import com.thx.common.util.CoreConst;
 import com.thx.common.util.ResultUtil;
 import com.thx.module.admin.entity.Permission;
@@ -35,7 +34,6 @@ public class RoleController {
 
     private final RoleService roleService;
     private final PermissionService permissionService;
-    private final MyShiroRealm myShiroRealm;
 
 
     /**
@@ -151,8 +149,8 @@ public class RoleController {
 
 
     /**
-     * 保存角色的权限分配结果。分配完成后会反查该角色下所有用户，并逐个清除他们在 MyShiroRealm 中缓存的
-     * 授权信息，使权限变更对这些用户的下一次请求立即生效，无需重新登录。
+     * 保存角色的权限分配结果。权限变更对该角色下所有用户的下一次请求立即生效，无需重新登录
+     * （Sa-Token 每次鉴权都会实时回调 SaTokenPermissionImpl 查库）。
      */
     @PostMapping("/assign/permission")
     @ResponseBody
@@ -165,14 +163,9 @@ public class RoleController {
         try {
             roleService.addAssignPermission(roleId, permissionIdsList);
             /*重新加载角色下所有用户权限*/
-            List<User> userList = roleService.findByRoleId(roleId);
-            if (!userList.isEmpty()) {
-                List<String> userIds = new ArrayList<>();
-                for (User user : userList) {
-                    userIds.add(user.getUserId());
-                }
-                myShiroRealm.clearAuthorizationByUserId(userIds);
-            }
+            // 原先这里需要清除 Shiro 的授权缓存，否则已登录用户要等缓存过期才能拿到新权限。
+            // 迁移到 Sa-Token 后不再需要：鉴权时每次都会回调 SaTokenPermissionImpl 实时查库，
+            // 因此角色权限一经保存即刻对所有在线用户生效。
             return ResultUtil.success("分配权限成功");
         } catch (Exception e) {
             return ResultUtil.error("分配权限失败");

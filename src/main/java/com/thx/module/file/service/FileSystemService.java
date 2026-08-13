@@ -8,7 +8,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 文件系统核心门面
- * 只依赖 FileCallerContext，不直接读取 HttpServletRequest / Header / Shiro Subject
+ * 只依赖 FileCallerContext，不直接读取 HttpServletRequest / Header / 登录会话
  */
 public interface FileSystemService {
 

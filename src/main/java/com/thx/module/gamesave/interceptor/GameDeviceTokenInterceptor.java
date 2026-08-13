@@ -1,6 +1,6 @@
 package com.thx.module.gamesave.interceptor;
 
-import com.alibaba.fastjson.JSONObject;
+import com.thx.common.util.JsonUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.thx.module.gamesave.config.GameSaveProperties;
 import com.thx.module.gamesave.context.GameCallerContext;
@@ -17,6 +17,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Duration;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** 校验 GameSave 设备 Token，并把用户/设备身份写入请求上下文。 */
 @Slf4j
@@ -89,11 +91,11 @@ public class GameDeviceTokenInterceptor implements HandlerInterceptor {
                                    String message) throws Exception {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");
-        JSONObject json = new JSONObject();
+        Map<String, Object> json = new LinkedHashMap<>();
         json.put("status", HttpServletResponse.SC_UNAUTHORIZED);
         json.put("code", code);
         json.put("msg", message);
         json.put("data", null);
-        response.getWriter().write(json.toJSONString());
+        response.getWriter().write(JsonUtil.toJson(json));
     }
 }

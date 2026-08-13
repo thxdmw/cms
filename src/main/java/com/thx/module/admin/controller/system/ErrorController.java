@@ -19,7 +19,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @AllArgsConstructor
 public class ErrorController {
 
-    /** Shiro 鉴权失败（无权限访问）时进入 */
+    /** 鉴权失败（已登录但无权限）时进入 */
     @RequestMapping("/403")
     public String noPermission(HttpServletRequest request, HttpServletResponse response, Model model) {
         response.setStatus(HttpStatus.FORBIDDEN.value());

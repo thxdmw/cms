@@ -8,7 +8,7 @@ import java.util.Set;
 /**
  * 文件系统调用方上下文
  * FileSystemService 及以下各层只能依赖该对象，禁止直接读取
- * HttpServletRequest / Header / Shiro Subject
+ * HttpServletRequest / Header / 登录会话
  */
 @Data
 public class FileCallerContext {

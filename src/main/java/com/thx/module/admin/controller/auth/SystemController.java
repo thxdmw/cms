@@ -14,11 +14,10 @@ import com.thx.module.admin.vo.base.ResponseVo;
 import com.pig4cloud.captcha.utils.CaptchaJakartaUtil;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.shiro.SecurityUtils;
-import org.apache.shiro.authc.AuthenticationException;
-import org.apache.shiro.authc.LockedAccountException;
-import org.apache.shiro.authc.UsernamePasswordToken;
-import org.apache.shiro.subject.Subject;
+import cn.dev33.satoken.stp.StpUtil;
+import com.thx.common.security.LoginAuthenticator;
+import com.thx.common.security.UserContext;
+import com.thx.common.util.IpUtil;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -40,7 +39,7 @@ import java.util.Set;
  * <p>
  * /login（GET）、/kickout 目前仍由服务端 Thymeleaf 模板渲染（templates/system/login.html、kickout.html）：
  * 用户尚未登录时无法进入 /admin 下由 AdminWebController 转发的 Vue SPA 壳，登录页只能独立于 SPA 之外渲染，
- * /kickout 则是 Shiro 自定义踢人拦截器（KickoutSessionControlFilter）检测到当前会话已被顶掉后跳转的提示页；
+ * /kickout 则是全局异常处理在捕获到 Sa-Token 的 NotLoginException（会话被顶掉/被踢下线）后跳转的提示页；
  * 登录成功后，/menu、/currentUser 等接口才是供 Vue admin-app 异步调用获取权限数据的纯 JSON 接口。
  */
 @Slf4j
@@ -52,6 +51,7 @@ public class SystemController {
     private final PermissionService permissionService;
     private final BizCategoryService bizCategoryService;
     private final SysConfigService configService;
+    private final LoginAuthenticator loginAuthenticator;
 
     /**
      * 展示登录页（服务端 Thymeleaf 渲染）。若当前会话已认证，直接重定向到 /admin 首页，不重复展示登录页；
@@ -62,7 +62,7 @@ public class SystemController {
     @GetMapping("/login")
     public ModelAndView login(Model model) {
         ModelAndView modelAndView = new ModelAndView();
-        if (SecurityUtils.getSubject().isAuthenticated()) {
+        if (StpUtil.isLogin()) {
             modelAndView.setView(new RedirectView("/admin", true, false));
             return modelAndView;
         }
@@ -76,7 +76,7 @@ public class SystemController {
 
     /**
      * 提交登录：先校验图形验证码（无论校验成功与否都会清除 session 中的验证码，避免被重复提交复用），
-     * 再交由 Shiro 完成用户名密码认证；rememberMe 传 1 时开启 Shiro 记住我。账号被锁定、用户名或密码错误
+     * 再显式完成用户名密码认证；rememberMe 传 1 时使用持久化 Cookie。账号被锁定、用户名或密码错误
      * 会分别返回不同的错误提示；登录成功后更新该用户的最后登录时间。
      *
      * @param request      当前请求，验证码校验需要用到其 session
@@ -96,26 +96,29 @@ public class SystemController {
             CaptchaJakartaUtil.clear(request);
             return ResultUtil.error("验证码错误！");
         }
-        UsernamePasswordToken token = new UsernamePasswordToken(username, password);
-        try {
-            token.setRememberMe(1 == rememberMe);
-            Subject subject = SecurityUtils.getSubject();
-            subject.login(token);
-        } catch (LockedAccountException e) {
-            token.clear();
-            return ResultUtil.error("用户已经被锁定不能登录，请联系管理员！");
-        } catch (AuthenticationException e) {
-            token.clear();
+        // 原先这一步交给 Shiro 的 subject.login() 内部完成（查用户 → 校验状态 → 比对密码），
+        // Sa-Token 没有 Realm 概念，因此把整个流程显式写在这里，逻辑与原来保持一致。
+        User user = userService.selectByUsername(username);
+        if (user == null) {
             return ResultUtil.error("用户名或者密码错误！");
         }
+        if (CoreConst.STATUS_INVALID.equals(user.getStatus())) {
+            return ResultUtil.error("用户已经被锁定不能登录，请联系管理员！");
+        }
+        if (!loginAuthenticator.authenticate(user, password)) {
+            return ResultUtil.error("用户名或者密码错误！");
+        }
+        // 把登录 IP 放进会话，供在线用户列表展示
+        user.setLoginIpAddress(IpUtil.getIpAddr(request));
+        UserContext.login(user, 1 == rememberMe);
         //更新最后登录时间
-        userService.updateLastLoginTime((User) SecurityUtils.getSubject().getPrincipal());
+        userService.updateLastLoginTime(user);
         return ResultUtil.success("登录成功！");
     }
 
     /**
      * 展示"账号已在其他地方登录 / 会话已被顶下线"提示页（服务端 Thymeleaf 渲染），
-     * 由 Shiro 的 KickoutSessionControlFilter 在检测到当前会话已失效后重定向到此。
+     * 由全局异常处理在检测到当前会话已失效（被顶下线/被踢下线）后重定向到此。
      *
      * @param model 视图数据容器
      * @return 视图名
@@ -130,21 +133,15 @@ public class SystemController {
     }
 
     /**
-     * 登出：若当前登录主体是 User，先调用 userService.kickout 清理该用户名下的在线会话记录，
-     * 再执行 Shiro 的 subject.logout()，最后重定向回 /admin（因未认证会被再次引导至登录页）。
+     * 登出：清除当前会话的登录态，最后重定向回 /admin（因未认证会被再次引导至登录页）。
      *
      * @return 重定向视图
      */
     @RequestMapping("/logout")
     public ModelAndView logout() {
-        Subject subject = SecurityUtils.getSubject();
-        Object principal = subject.getPrincipal();
-        if (principal instanceof User) {
-            String username = ((User) principal).getUsername();
-            Serializable sessionId = subject.getSession().getId();
-            userService.kickout(sessionId, username);
-        }
-        subject.logout();
+        // Sa-Token 的 logout() 会自行清理该会话在 Redis 中的登录态与会话数据，
+        // 不再需要像 Shiro 那样额外维护"用户名 → 会话队列"的缓存并手工清理。
+        UserContext.logout();
         ModelAndView modelAndView = new ModelAndView();
         modelAndView.setView(new RedirectView("/admin", true, false));
         return modelAndView;
@@ -158,19 +155,19 @@ public class SystemController {
     @PostMapping("/menu")
     @ResponseBody
     public List<Permission> getMenus() {
-        return permissionService.selectMenuByUserId(((User) SecurityUtils.getSubject().getPrincipal()).getUserId());
+        return permissionService.selectMenuByUserId(UserContext.getCurrentUserId());
     }
 
     /**
      * 获取当前登录用户信息（后台 Vue SPA 用来做客户端权限按钮展示），
-     * perms 复用 findPermsByUserId——和 MyShiroRealm 授权时用的是同一份数据
+     * perms 复用 findPermsByUserId——和接口鉴权时用的是同一份数据（见 SaTokenPermissionImpl）
      *
      * @return 当前用户名、昵称与权限标识集合
      */
     @PostMapping("/currentUser")
     @ResponseBody
     public ResponseVo<CurrentUserVo> currentUser() {
-        User user = (User) SecurityUtils.getSubject().getPrincipal();
+        User user = UserContext.getCurrentUser();
         Set<String> perms = permissionService.findPermsByUserId(user.getUserId());
         return ResultUtil.success("获取成功", new CurrentUserVo(user.getUsername(), user.getNickname(), perms));
     }

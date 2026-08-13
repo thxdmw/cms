@@ -10,7 +10,7 @@ import java.util.Date;
 
 /**
  * GameSave 独立用户账号。
- * 与 CMS 后台管理员账号完全隔离，避免把客户端用户接入 Shiro/RBAC 管理模型。
+ * 与 CMS 后台管理员账号完全隔离，避免把客户端用户接入后台 RBAC 管理模型。
  */
 @Data
 @Accessors(chain = true)

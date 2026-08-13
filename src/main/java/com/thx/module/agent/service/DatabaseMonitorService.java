@@ -7,7 +7,7 @@ import java.util.Map;
  * 数据库性能监控服务，负责获取 Druid 连接池状态、慢 SQL、SQL 执行统计等信息。
  * <p>
  * 数据消费方是 {@code com.thx.module.agent.controller.OpsAgentApiController}（路径 /agent/api/ops/**），
- * 即供外部运维 Agent/自动化客户端调用的接口，走独立的 X-API-Key 鉴权（不经过 Shiro 会话），
+ * 即供外部运维 Agent/自动化客户端调用的接口，走独立的 X-API-Key 鉴权（不经过 Sa-Token 登录会话），
  * 不是内部管理后台随意调用的普通监控接口。
  */
 public interface DatabaseMonitorService {

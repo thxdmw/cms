@@ -1,6 +1,6 @@
 package com.thx.module.admin.controller.article;
 
-import com.alibaba.fastjson.JSON;
+import com.thx.common.util.JsonUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.thx.common.util.Pagination;
 import com.thx.common.util.PushArticleUtil;
@@ -14,7 +14,7 @@ import com.thx.module.admin.vo.BaiduPushResVo;
 import com.thx.module.admin.vo.base.PageResultVo;
 import com.thx.module.admin.vo.base.ResponseVo;
 import lombok.AllArgsConstructor;
-import org.apache.shiro.SecurityUtils;
+import com.thx.common.security.UserContext;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,7 +68,7 @@ public class ArticleController {
     @CacheEvict(value = "article", allEntries = true)
     public ResponseVo add(BizArticle bizArticle, String[] tag) {
         try {
-            User user = (User) SecurityUtils.getSubject().getPrincipal();
+            User user = UserContext.getCurrentUser();
             bizArticle.setUserId(user.getUserId());
             bizArticle.setAuthor(user.getNickname());
             BizArticle article = articleService.insertArticle(bizArticle);
@@ -111,7 +111,7 @@ public class ArticleController {
     public ResponseVo pushBatch(@RequestParam("urls[]") String[] urls) {
         try {
             String url = configService.selectAll().get(SysConfigKey.BAIDU_PUSH_URL.getValue());
-            BaiduPushResVo baiduPushResVo = JSON.parseObject(PushArticleUtil.postBaidu(url, urls), BaiduPushResVo.class);
+            BaiduPushResVo baiduPushResVo = JsonUtil.parse(PushArticleUtil.postBaidu(url, urls), BaiduPushResVo.class);
             if (baiduPushResVo.getNotSameSite() == null && baiduPushResVo.getNotValid() == null) {
                 return ResultUtil.success("推送文章成功");
             } else {

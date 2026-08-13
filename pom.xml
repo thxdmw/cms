@@ -35,23 +35,17 @@
         <mybatis-plus.version>3.5.7</mybatis-plus.version>
 
         <!-- 权限与验证码 -->
-        <shiro.version>3.0.0</shiro.version>
-        <shiro-redis.version>3.3.1</shiro-redis.version>
         <!--
-          必须把 Jedis 锁回 3.3.0：shiro-redis 3.3.1 是针对 Jedis 3.3.0 编译的，
-          而 spring-boot-dependencies 默认把 jedis.version 管理到 6.x。
-          Jedis 自 3.7.0 起把 BinaryJedis.expire(byte[], int) 改成了 expire(byte[], long)，
-          二进制不兼容，会让 RedisSessionDAO 创建会话时抛
-          NoSuchMethodError，表现为所有需要 Session 的页面（如 /admin）500。
-          注意：不能只锁到 3.x 大版本，3.7.0+ 同样不兼容，必须停在 3.6.x 以下。
-          项目 Spring Data Redis 侧走的是 Lettuce，Jedis 仅供 shiro-redis 使用，
-          因此锁定该版本不影响其它功能。shiro-redis 已多年未发版，无支持 Jedis 4+ 的版本。
+          Sa-Token 取代原先的 Apache Shiro + shiro-redis。
+          换掉 Shiro 的直接原因不是 Shiro 本体过时（3.0.0 已支持 Jakarta），
+          而是它的 Redis 生态 shiro-redis 早已停止维护：该库针对 Jedis 3.3.0 编译，
+          会把整个项目反向锁死在 2020 年的 Jedis 版本上，且与 Spring Boot 3 的
+          依赖管理持续冲突（曾导致会话创建抛 NoSuchMethodError、后台整体 500）。
+          Sa-Token 的 Redis 集成基于 Spring Data Redis（走 Lettuce），
+          不再引入 Jedis，从根上消除这条依赖冲突链。
         -->
-        <jedis.version>3.3.0</jedis.version>
+        <sa-token.version>1.44.0</sa-token.version>
         <captcha.version>2.2.3</captcha.version>
-
-        <!-- JSON 工具 -->
-        <fastjson.version>2.0.14</fastjson.version>
 
         <!-- 对象存储 SDK -->
         <minio.version>8.5.17</minio.version>
@@ -117,25 +111,18 @@
             <artifactId>druid-spring-boot-starter</artifactId>
             <version>${druid.version}</version>
         </dependency>
-        <!--Shiro 3.x：基于 Jakarta Servlet 规范（Spring Boot 3 + Tomcat 10 唯一兼容线），版本号集中管理-->
+        <!--Sa-Token：认证鉴权框架，提供登录态、会话、注解/路由鉴权与同账号登录数限制-->
         <dependency>
-            <groupId>org.apache.shiro</groupId>
-            <artifactId>shiro-spring</artifactId>
-            <version>${shiro.version}</version>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-spring-boot3-starter</artifactId>
+            <version>${sa-token.version}</version>
         </dependency>
-        <!--shiro-redis：把 Shiro 的 Session/Cache 存储到 Redis，支持多实例部署共享登录状态。
-            依赖 jedis，版本由上面的 ${jedis.version} 锁在 3.x（原因见属性处注释）；
-            排除 shiro-core 避免覆盖 Spring Boot 3 管理的版本-->
+        <!--Sa-Token 的 Redis 存储（Jackson 序列化）：登录态与会话共享到 Redis，支持多实例部署。
+            底层复用项目已有的 spring-boot-starter-data-redis（Lettuce 客户端），不引入 Jedis-->
         <dependency>
-            <groupId>org.crazycake</groupId>
-            <artifactId>shiro-redis</artifactId>
-            <version>${shiro-redis.version}</version>
-            <exclusions>
-                <exclusion>
-                    <artifactId>shiro-core</artifactId>
-                    <groupId>org.apache.shiro</groupId>
-                </exclusion>
-            </exclusions>
+            <groupId>cn.dev33</groupId>
+            <artifactId>sa-token-redis-jackson</artifactId>
+            <version>${sa-token.version}</version>
         </dependency>
 
         <!--图形验证码：登录页面防暴力破解-->
@@ -149,12 +136,6 @@
                     <artifactId>javax.servlet-api</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <!--阿里 FastJSON2：项目里部分接口手写 JSON 序列化时使用-->
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>fastjson</artifactId>
-            <version>${fastjson.version}</version>
         </dependency>
         <!--MinIO 对象存储 SDK：com.thx.module.file 文件系统模块的存储实现-->
         <dependency>
@@ -175,11 +156,22 @@
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
-        <!--Hutool 工具库：字符串/日期/文件名等常用工具方法-->
+        <!--Hutool 工具库：字符串/集合/日期/文件名等常用工具方法。
+            只引 hutool-core 而非 hutool-all：项目实际只用到 core 里的
+            StrUtil/CollUtil/FileNameUtil/NumberUtil/MapUtil/BeanUtil/RandomUtil/Validator/DateUtil，
+            原先 hutool-all 会把 http/crypto/poi 等全部模块打进来，体积大且扩大攻击面。
+            原 HttpUtil 已改用 JDK 内置 HttpClient，HtmlUtil 已改用 jsoup（见 HtmlSanitizer）。-->
         <dependency>
             <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
+            <artifactId>hutool-core</artifactId>
             <version>${hutool.version}</version>
+        </dependency>
+        <!--Spring Security 的独立加密模块：只提供 BCryptPasswordEncoder 等密码编码器，
+            不包含 Spring Security 的过滤器链/自动配置，不会影响现有鉴权体系。
+            用于把用户密码从不安全的 md5 加盐哈希迁移到 BCrypt，版本由父 POM 管理。-->
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-crypto</artifactId>
         </dependency>
         <!--Jsoup：HTML 解析，爬虫抓取和富文本内容清洗使用-->
         <dependency>

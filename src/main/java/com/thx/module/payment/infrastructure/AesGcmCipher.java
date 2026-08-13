@@ -16,7 +16,7 @@ import java.util.Base64;
 /**
  * 渠道配置等敏感数据的 AES-GCM 加解密。主密钥来自环境变量 {@code PAYMENT_MASTER_KEY}
  * （Base64 编码的 16/24/32 字节 AES Key），禁止落库、禁止进 Git、禁止硬编码——
- * 校验方式与 {@code ShiroConfig} 里 remember-me 的 AES Key 校验保持一致的工程习惯：
+ * 沿用项目一贯的密钥校验工程习惯：
  * 启动时立即校验，长度不对直接拒绝启动，而不是留到运行期才报错。
  * <p>
  * 密文格式：{@code Base64(IV(12 字节) + ciphertext+tag)}，IV 每次加密随机生成并随密文一起保存，

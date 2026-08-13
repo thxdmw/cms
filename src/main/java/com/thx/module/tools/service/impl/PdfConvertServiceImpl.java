@@ -1,8 +1,7 @@
 package com.thx.module.tools.service.impl;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.thx.common.util.JsonUtil;
 import com.thx.exception.ApiException;
 import com.thx.module.tools.service.PdfConvertService;
 import com.thx.module.tools.util.FileSizeUtils;
@@ -27,6 +26,7 @@ import java.io.IOException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -250,9 +250,9 @@ public class PdfConvertServiceImpl implements PdfConvertService {
                 throw new ApiException(detailed ? "详细 OCR 服务调用失败" : "OCR 服务调用失败");
             }
 
-            JSONObject jsonResponse = JSON.parseObject(resp.getBody());
-            if (!jsonResponse.getBoolean("success")) {
-                String errorMsg = jsonResponse.getString("error");
+            JsonNode jsonResponse = JsonUtil.readTree(resp.getBody());
+            if (!jsonResponse.path("success").asBoolean()) {
+                String errorMsg = JsonUtil.getString(jsonResponse, "error");
                 if (errorMsg == null || errorMsg.isEmpty()) {
                     errorMsg = detailed ? "详细 OCR 识别失败" : "OCR 识别失败";
                 }
@@ -266,17 +266,20 @@ public class PdfConvertServiceImpl implements PdfConvertService {
                 redisTemplate.expireAt(redisKey, getTodayEnd());
             }
 
+            String recognizedText = JsonUtil.getString(jsonResponse, "text");
             Map<String, Object> result = new HashMap<>(4);
-            result.put("text", jsonResponse.getString("text"));
-            result.put("language", jsonResponse.getString("language"));
+            result.put("text", recognizedText);
+            result.put("language", JsonUtil.getString(jsonResponse, "language"));
             result.put("success", true);
+            int textLength = recognizedText == null ? 0 : recognizedText.length();
             if (detailed) {
-                JSONArray words = jsonResponse.getJSONArray("words");
-                result.put("words", words.toJavaList(Map.class));
-                log.info("详细 OCR 识别成功，文字长度：{}, 单词数量：{}", jsonResponse.getString("text").length(), words.size());
+                List<Map> words = JsonUtil.convertList(jsonResponse.get("words"), Map.class);
+                result.put("words", words);
+                log.info("详细 OCR 识别成功，文字长度：{}, 单词数量：{}", textLength, words.size());
             } else {
-                result.put("confidence", jsonResponse.getDouble("confidence"));
-                log.info("OCR 识别成功，文字长度：{}, 置信度：{}", jsonResponse.getString("text").length(), jsonResponse.getDouble("confidence"));
+                double confidence = jsonResponse.path("confidence").asDouble();
+                result.put("confidence", confidence);
+                log.info("OCR 识别成功，文字长度：{}, 置信度：{}", textLength, confidence);
             }
             return result;
         } catch (IOException e) {

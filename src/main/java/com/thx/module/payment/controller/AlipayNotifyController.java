@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 支付宝异步通知回调。调用方是支付宝服务器，不能走 Shiro 登录鉴权（{@link AnonymousAccess}），
+ * 支付宝异步通知回调。调用方是支付宝服务器，不能走登录鉴权（{@link AnonymousAccess}），
  * 安全性完全依赖 {@code PaymentNotifyService} 内部的官方 SDK 验签，不做任何弱化。
  * <p>
  * 响应体必须是纯文本 "success"/"failure"（支付宝要求的固定协议），不能返回 JSON，

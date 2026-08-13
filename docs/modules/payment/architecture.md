@@ -12,18 +12,18 @@
 | 当前模块划分 | 包级划分：`com.thx.module.{admin,agent,blog,file,tools}`，无 Maven 子模块边界 |
 | 数据库 | **MySQL**（不是 PostgreSQL）。生产环境固定 5.7（见 `docs/modules/platform/server-configuration.md`），本地开发机为 8.0.34。因此所有 SQL 必须按 **MySQL 5.7 兼容**编写（不能用 `SELECT ... SKIP LOCKED`、窗口函数、CTE 等 8.0 专属语法） |
 | ORM | MyBatis-Plus 3.5.5，Mapper XML 放在 `resources/mapper/*.xml`，也允许纯注解 Mapper（`file` 模块已是纯注解风格），全局 `id-type: auto` |
-| Schema 管理 | **没有 Flyway/Liquibase**，通过 `docs/modules/<模块>/*.sql` 手工安装脚本管理（`cms.sql`、`file_system.sql`），本次新增 `docs/modules/payment/schema.sql` 遵循同一约定，**不引入 Flyway** |
-| 鉴权 | **Apache Shiro**（不是 Spring Security，也不是 Sa-Token），Session 存储可切换 Redis/内存；免登录路径通过 `@AnonymousAccess` 注解 + `AnonymousPathScanner` 动态扫描注册，无需手工维护 URL 白名单 |
-| Redis | `spring-data-redis` 的 `RedisTemplate<String,Object>`（Jackson 序列化），**没有 Redisson**，Jedis 6.0.0（由 shiro-redis 3.3.1 传递引入；应用侧默认走 Lettuce 客户端） |
+| Schema 管理 | **已引入 Flyway**（`src/main/resources/db/migration/V*.sql`，启动时自动迁移），本文档早期版本记载的"不引入 Flyway"已不再成立。历史上的 `docs/modules/<模块>/*.sql` 手工安装脚本（`cms.sql`、`file_system.sql`、`payment/schema.sql`）仍保留作为整库初始化参考，但**新增的表结构变更应写成 Flyway 迁移脚本** |
+| 鉴权 | **Sa-Token**（不是 Spring Security；原 Apache Shiro 已于 2026-08 迁移下线，原因是 shiro-redis 停止维护并把项目锁死在 Jedis 3.3.0）。登录态与会话存 Redis；免登录路径通过 `@AnonymousAccess` 注解 + `AnonymousPathScanner` 动态扫描注册，无需手工维护 URL 白名单 |
+| Redis | `spring-data-redis` 的 `RedisTemplate<String,Object>`（Jackson 序列化），**没有 Redisson**，客户端为 Lettuce；**已无 Jedis 依赖**（随 shiro-redis 一起移除） |
 | 统一返回体 | `com.thx.module.admin.vo.base.ResponseVo<T>`（`status/msg/data`），配套 `ResultUtil` 静态工厂；`ResponseStatus` 枚举提供常用状态码，但 `ResponseVo.error(int status, String msg)` 支持任意自定义 HTTP 语义状态码 |
-| 全局异常处理 | `ExceptionHandleController`（`@ControllerAdvice`）处理 `ApiException`/Shiro 异常等全局兜底；但项目已确立"**独立模块可以有自己的 `@RestControllerAdvice`**"先例——`file` 模块的 `FileExceptionHandler` 用 `basePackages` 限定只处理自己模块的异常，返回精确 HTTP 状态码。Payment 模块复用这一先例 |
+| 全局异常处理 | `ExceptionHandleController`（`@ControllerAdvice`）处理 `ApiException`/Sa-Token 异常等全局兜底；但项目已确立"**独立模块可以有自己的 `@RestControllerAdvice`**"先例——`file` 模块的 `FileExceptionHandler` 用 `basePackages` 限定只处理自己模块的异常，返回精确 HTTP 状态码。Payment 模块复用这一先例 |
 | ID 生成 | 无 Snowflake/雪花算法组件，只有 `UUIDUtil`（UUID/短 UUID）。业务单号历史上依赖 `DateUtil` 的时间戳格式常量拼接 |
 | 时间类型 | 全项目统一使用 `java.util.Date` + MySQL `datetime`（不是 `Instant`/`TIMESTAMPTZ`，项目里没有 PostgreSQL，也没有 JSR-310 落库先例）。Payment 模块沿用 `Date`/`datetime`，字段命名沿用项目既有的 `create_time`/`update_time`（不是 `created_at`/`updated_at`） |
 | HTTP Client | 项目内没有沉淀统一 HTTP Client 封装（仅个别模块直接用 `RestTemplate`）。Payment 对接支付宝使用**官方 SDK 内置的 HTTP 调用**，不需要额外选型 |
 | 配置管理 | Spring Boot `@ConfigurationProperties`，前缀统一用 `cms.xxx`（如 `cms.file-system`、`cms.http-logging`），敏感值通过环境变量注入（`${XXX:default}`），`.env.example` 集中记录。Payment 沿用 `cms.payment` 前缀 |
 | 模块间依赖 | `admin/agent/blog/file/tools` 各自独立，`file` 模块是当前唯一的"多租户基础设施模块"范式（`FileApp` + API Key + Scope，供 CMS 自身和未来 Pet/Game 等应用共用），是 Payment 模块结构上最值得参考的先例 |
 
-**结论：优先复用 MyBatis-Plus / MySQL / Shiro（`@AnonymousAccess`）/ 现有 `ResponseVo` / Jackson / Hutool；不引入 JPA、PostgreSQL、Sa-Token、Redisson、Flyway。唯一新增依赖是 `com.alipay.sdk:alipay-sdk-java`（官方支付宝 SDK，不可替代）。**
+**结论：优先复用 MyBatis-Plus / MySQL / Sa-Token（`@AnonymousAccess`）/ 现有 `ResponseVo` / Jackson / Hutool；不引入 JPA、PostgreSQL、Redisson。唯一新增依赖是 `com.alipay.sdk:alipay-sdk-java`（官方支付宝 SDK，不可替代）。**
 
 ## 二、模块定位与放置位置
 
@@ -184,7 +184,7 @@ public interface PaymentChannelProvider {
 
 ## 十、ChannelAccount 与配置加密
 
-`payment_channel_account` 存储 `account_code / channel / account_name / config_encrypted(TEXT) / enabled`。`config_encrypted` 是 `AlipayChannelConfig` 序列化为 JSON 后，用 `AesGcmCipher`（`AES/GCM/NoPadding`，Java 内置 `javax.crypto`，未引入新依赖）加密的密文；IV 随机生成并附在密文前一起存储（`Base64(IV(12B) + ciphertext+tag)`）。主密钥来自环境变量 `PAYMENT_MASTER_KEY`（Base64 编码的 16/24/32 字节 AES Key），启动时校验长度，**不落库、不进 Git**，校验逻辑与 `ShiroConfig` 里 `remember-me-cipher-key` 的处理方式保持一致的工程习惯。
+`payment_channel_account` 存储 `account_code / channel / account_name / config_encrypted(TEXT) / enabled`。`config_encrypted` 是 `AlipayChannelConfig` 序列化为 JSON 后，用 `AesGcmCipher`（`AES/GCM/NoPadding`，Java 内置 `javax.crypto`，未引入新依赖）加密的密文；IV 随机生成并附在密文前一起存储（`Base64(IV(12B) + ciphertext+tag)`）。主密钥来自环境变量 `PAYMENT_MASTER_KEY`（Base64 编码的 16/24/32 字节 AES Key），启动时校验长度，**不落库、不进 Git**，校验逻辑沿用项目一贯的密钥校验工程习惯。
 
 ## 十一、AppChannelBinding
 
@@ -234,9 +234,9 @@ public interface PaymentChannelProvider {
 
 ## 十七、当前 REST API 的鉴权定位（诚实说明，不过度设计）
 
-`/api/payment/v1/**`（Payment/Refund Controller）当前**沿用项目默认 Shiro 会话鉴权**，不做特殊处理——因为本阶段唯一真实调用路径是 `PaymentFacade` 的进程内 Java 调用，这批 REST API 只是为未来拆分预留的骨架，尚未设计服务间身份认证（API Key/mTLS）。这是"上生产前必须处理的问题"之一，见文末清单，不在本次范围内假装解决。
+`/api/payment/v1/**`（Payment/Refund Controller）当前**沿用项目默认 Sa-Token 会话鉴权**，不做特殊处理——因为本阶段唯一真实调用路径是 `PaymentFacade` 的进程内 Java 调用，这批 REST API 只是为未来拆分预留的骨架，尚未设计服务间身份认证（API Key/mTLS）。这是"上生产前必须处理的问题"之一，见文末清单，不在本次范围内假装解决。
 
-`/api/payment/channel-notify/alipay/{channelAccountCode}` 用 `@AnonymousAccess` 标注，走项目现成的匿名路径机制，安全性由支付宝签名验签保障，不依赖 Shiro。
+`/api/payment/channel-notify/alipay/{channelAccountCode}` 用 `@AnonymousAccess` 标注，走项目现成的匿名路径机制，安全性由支付宝签名验签保障，不依赖登录会话。
 
 ## 十八、数据库表清单
 

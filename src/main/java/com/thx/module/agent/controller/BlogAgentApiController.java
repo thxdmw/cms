@@ -29,9 +29,9 @@ import java.util.stream.Collectors;
  * <p>
  * 这不是给内部管理后台用的普通接口：请求需要在请求头带上 {@code X-API-Key}，由
  * {@link com.thx.common.interceptor.AgentApiAuthInterceptor} 统一拦截校验（配置项
- * {@code agent.api.key}/{@code agent.api.enabled}），校验逻辑独立于 Shiro 会话体系。
- * 方法上的 {@link com.thx.common.annotation.AnonymousAccess} 只是用来告诉 Shiro"这个方法不需要
- * Shiro 登录会话"，并不代表接口是完全开放匿名的——真正的准入控制在上面这层 API Key 拦截器。
+ * {@code agent.api.key}/{@code agent.api.enabled}），校验逻辑独立于 Sa-Token 会话体系。
+ * 方法上的 {@link com.thx.common.annotation.AnonymousAccess} 只是用来告诉鉴权拦截器"这个方法不需要
+ * 登录会话"，并不代表接口是完全开放匿名的——真正的准入控制在上面这层 API Key 拦截器。
  * <p>
  * 本控制器自己不维护数据层，文章/分类/标签的读写全部复用 admin 模块的
  * {@link BizArticleService}/{@link BizCategoryService}/{@link BizTagsService}。

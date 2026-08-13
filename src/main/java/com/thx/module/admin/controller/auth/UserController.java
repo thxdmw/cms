@@ -2,7 +2,6 @@ package com.thx.module.admin.controller.auth;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.thx.common.shiro.MyShiroRealm;
 import com.thx.common.util.*;
 import com.thx.module.admin.entity.Role;
 import com.thx.module.admin.entity.User;
@@ -25,7 +24,6 @@ import java.util.*;
 @AllArgsConstructor
 public class UserController {
 
-    private final MyShiroRealm shiroRealm;
     private final UserService userService;
     private final RoleService roleService;
 
@@ -109,8 +107,8 @@ public class UserController {
     }
 
     /**
-     * 保存用户的角色分配结果。分配完成后立即清除该用户在 MyShiroRealm 中缓存的授权信息，
-     * 使新的角色/权限组合无需重新登录即可对该用户下一次请求生效。
+     * 保存用户的角色分配结果。新的角色/权限组合无需重新登录即可对该用户下一次请求生效
+     * （Sa-Token 每次鉴权都会实时回调 SaTokenPermissionImpl 查库）。
      */
     @PostMapping("/assign/role")
     @ResponseBody
@@ -121,8 +119,8 @@ public class UserController {
         try {
             // 给用户分配角色
             userService.addAssignRole(userId, roleIdsList);
-            // 重置用户权限
-            shiroRealm.clearAuthorizationByUserId(Collections.singletonList(userId));
+            // 无需再手工重置权限缓存：Sa-Token 鉴权时实时回调 SaTokenPermissionImpl 查库，
+            // 角色调整后立即生效。
             responseVo = ResultUtil.success("分配角色成功");
         } catch (Exception e) {
             responseVo = ResultUtil.error("分配角色失败");
@@ -131,7 +129,7 @@ public class UserController {
     }
 
     /**
-     * 修改当前登录用户密码。薄层转发：新旧密码校验、一致性校验、清除 Shiro 认证缓存等逻辑
+     * 修改当前登录用户密码。薄层转发：新旧密码校验、一致性校验、强制该账号下线等逻辑
      * 全部在 UserService#changePassword 内完成，本方法不做任何额外处理。
      */
     @RequestMapping(value = "/changePassword", method = RequestMethod.POST)

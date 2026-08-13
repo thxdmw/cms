@@ -1,6 +1,6 @@
 package com.thx.module.file.interceptor;
 
-import com.alibaba.fastjson.JSONObject;
+import com.thx.common.util.JsonUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.thx.module.file.annotation.RequiredFileScope;
 import com.thx.module.file.config.FileSystemProperties;
@@ -17,6 +17,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -129,10 +131,10 @@ public class FileAuthInterceptor implements HandlerInterceptor {
     private void writeError(HttpServletResponse response, int status, String message) throws Exception {
         response.setStatus(status);
         response.setContentType("application/json;charset=UTF-8");
-        JSONObject json = new JSONObject();
+        Map<String, Object> json = new LinkedHashMap<>();
         json.put("status", status);
         json.put("msg", message);
         json.put("data", null);
-        response.getWriter().write(json.toJSONString());
+        response.getWriter().write(JsonUtil.toJson(json));
     }
 }

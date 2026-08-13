@@ -7,7 +7,7 @@ import com.thx.module.admin.vo.UserSessionVo;
 import com.thx.module.admin.vo.base.PageResultVo;
 import com.thx.module.admin.vo.base.ResponseVo;
 import lombok.AllArgsConstructor;
-import org.apache.shiro.SecurityUtils;
+import com.thx.common.security.UserContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -29,7 +29,7 @@ public class OnlineUserController {
 
     /**
      * 在线用户列表。userService.selectOnlineUsers 一次性取回全部在线会话后，这里再手动做内存分页
-     * （而非数据库分页），因为在线用户数据来自 Shiro Session 而非数据库表。
+     * （而非数据库分页），因为在线用户数据来自 Sa-Token 的会话存储而非数据库表。
      */
     @PostMapping("/list")
     @ResponseBody
@@ -46,7 +46,7 @@ public class OnlineUserController {
     @ResponseBody
     public ResponseVo kickout(String sessionId, String username) {
         try {
-            if (SecurityUtils.getSubject().getSession().getId().equals(sessionId)) {
+            if (sessionId != null && sessionId.equals(UserContext.getCurrentTokenValue())) {
                 return ResultUtil.error("不能踢出自己");
             }
             userService.kickout(sessionId, username);
@@ -66,7 +66,7 @@ public class OnlineUserController {
         try {
             //要踢出的用户中是否有自己
             boolean hasOwn = false;
-            Serializable sessionId = SecurityUtils.getSubject().getSession().getId();
+            String sessionId = UserContext.getCurrentTokenValue();
             for (UserSessionVo sessionVo : sessions) {
                 if (sessionVo.getSessionId().equals(sessionId)) {
                     hasOwn = true;

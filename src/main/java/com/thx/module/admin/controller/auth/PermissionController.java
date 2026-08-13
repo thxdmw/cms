@@ -1,6 +1,6 @@
 package com.thx.module.admin.controller.auth;
 
-import com.thx.common.shiro.ShiroService;
+import com.thx.common.security.UrlPermissionRuleService;
 import com.thx.common.util.CoreConst;
 import com.thx.common.util.ResultUtil;
 import com.thx.module.admin.entity.Permission;
@@ -16,9 +16,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 后台权限（资源）管理接口，对应前端 admin-app 的权限管理模块。权限数据既用于渲染菜单，也是 Shiro
- * URL 级别授权的数据来源，因此新增/删除/编辑权限成功后都会调用 ShiroService#updatePermission 重新
- * 构建 Shiro 的 filterChainDefinitionMap，使权限变更无需重启应用即可对所有用户生效。
+ * 后台权限（资源）管理接口，对应前端 admin-app 的权限管理模块。权限数据既用于渲染菜单，也是 Sa-Token
+ * URL 级别授权的数据来源，因此新增/删除/编辑权限成功后都会调用 UrlPermissionRuleService#updatePermission 重新
+ * 刷新 UrlPermissionRuleService 中的 URL 权限规则，使权限变更无需重启应用即可对所有用户生效。
  */
 @Slf4j
 @Controller
@@ -32,7 +32,7 @@ public class PermissionController {
     private static final String[] MENU_FLAG = {"1", "2"};
 
     private final PermissionService permissionService;
-    private final ShiroService shiroService;
+    private final UrlPermissionRuleService urlPermissionRuleService;
 
 
     /**
@@ -51,7 +51,7 @@ public class PermissionController {
     }
 
     /**
-     * 新增权限。成功后触发 Shiro 权限链重建，使新权限对应的 URL 立即受权限控制。
+     * 新增权限。成功后触发 URL 权限规则刷新，使新权限对应的 URL 立即受权限控制。
      */
     @ResponseBody
     @PostMapping("/add")
@@ -59,7 +59,7 @@ public class PermissionController {
         try {
             int a = permissionService.insert(permission);
             if (a > 0) {
-                shiroService.updatePermission();
+                urlPermissionRuleService.updatePermission();
                 return ResultUtil.success("添加权限成功");
             } else {
                 return ResultUtil.error("添加权限失败");
@@ -72,7 +72,7 @@ public class PermissionController {
 
     /**
      * 删除权限。删除前校验该权限是否存在下级资源，存在则拒绝删除；实际为逻辑删除（状态置为失效）。
-     * 成功后同样触发 Shiro 权限链重建。
+     * 成功后同样触发 URL 权限规则刷新。
      */
     @ResponseBody
     @PostMapping("/delete")
@@ -84,7 +84,7 @@ public class PermissionController {
             }
             int a = permissionService.updateStatus(permissionId, CoreConst.STATUS_INVALID);
             if (a > 0) {
-                shiroService.updatePermission();
+                urlPermissionRuleService.updatePermission();
                 return ResultUtil.success("删除权限成功");
             } else {
                 return ResultUtil.error("删除权限失败");
@@ -96,14 +96,14 @@ public class PermissionController {
     }
 
     /**
-     * 编辑权限。成功后同样触发 Shiro 权限链重建。
+     * 编辑权限。成功后同样触发 URL 权限规则刷新。
      */
     @ResponseBody
     @PostMapping("/edit")
     public ResponseVo editPermission(@ModelAttribute("permission") Permission permission) {
         int a = permissionService.updateByPermissionId(permission);
         if (a > 0) {
-            shiroService.updatePermission();
+            urlPermissionRuleService.updatePermission();
             return ResultUtil.success("编辑权限成功");
         } else {
             return ResultUtil.error("编辑权限失败");

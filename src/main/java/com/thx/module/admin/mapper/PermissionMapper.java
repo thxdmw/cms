@@ -34,7 +34,7 @@ public interface PermissionMapper extends BaseMapper<Permission> {
      * 仅统计 perms 不为空且状态有效（status=1）的权限。
      *
      * @param userId 用户id
-     * @return 权限标识集合，用于 Shiro 鉴权
+     * @return 权限标识集合，用于 Sa-Token 鉴权
      */
     Set<String> findPermsByUserId(String userId);
 

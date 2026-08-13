@@ -45,6 +45,28 @@ spring:
         enabled: false
   aop:
     proxy-target-class: true
+
+# Sa-Token 认证鉴权配置（取代原先散落在 ShiroConfig 里的手写 Bean）
+sa-token:
+  # 登录态 token 的名称，同时也是 Cookie 名
+  token-name: cms-token
+  # token 有效期（秒）：30 天。勾选"记住我"时 Cookie 会持久化到该时长，
+  # 未勾选时 Cookie 为浏览器会话级，关闭浏览器即失效。对应原 rememberMe Cookie 的 2592000 秒
+  timeout: 2592000
+  # 最长无操作有效期（秒）：30 分钟内无请求则登录态失效，
+  # 对应原 Shiro DefaultWebSessionManager 的 globalSessionTimeout=1800000 毫秒
+  active-timeout: 1800
+  # 允许同一账号并发登录（原 Shiro 也允许，靠 kickout 过滤器限制数量）
+  is-concurrent: true
+  # 同一账号最多同时在线会话数，超出后挤掉最早登录的那个，
+  # 对应原 KickoutSessionControlFilter 的 maxSession=5 且 kickoutAfter=false
+  max-login-count: 5
+  # 每次登录都生成新 token，而不是多端共享同一个
+  is-share: false
+  token-style: uuid
+  # 关闭 Sa-Token 自己的启动横幅与操作日志，日志统一走项目的 logback 配置
+  is-print: false
+  is-log: false
   servlet:
     #上传文件大小限制全局：服务器文件管理支持上传压缩包，SERVER_FILE 策略上限 500MB，
     #这里必须不小于该值，否则大文件会在到达业务代码前就被框架直接拒绝

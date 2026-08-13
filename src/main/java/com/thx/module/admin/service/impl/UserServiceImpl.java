@@ -4,10 +4,12 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.thx.common.shiro.MyShiroRealm;
+import cn.dev33.satoken.session.SaSession;
+import cn.dev33.satoken.session.SaTerminalInfo;
+import cn.dev33.satoken.stp.StpUtil;
 import com.thx.common.util.CopyUtil;
 import com.thx.common.util.CoreConst;
-import com.thx.common.util.PasswordHelper;
+import com.thx.common.security.PasswordService;
 import com.thx.common.util.Pagination;
 import com.thx.common.util.ResultUtil;
 import com.thx.common.util.UUIDUtil;
@@ -20,15 +22,7 @@ import com.thx.module.admin.vo.ChangePasswordVo;
 import com.thx.module.admin.vo.UserOnlineVo;
 import com.thx.module.admin.vo.base.ResponseVo;
 import lombok.AllArgsConstructor;
-import org.apache.shiro.SecurityUtils;
-import org.apache.shiro.cache.Cache;
-import org.apache.shiro.cache.CacheManager;
-import org.apache.shiro.session.Session;
-import org.apache.shiro.session.mgt.DefaultSessionKey;
-import org.apache.shiro.session.mgt.SessionManager;
-import org.apache.shiro.session.mgt.eis.SessionDAO;
-import org.apache.shiro.subject.SimplePrincipalCollection;
-import org.apache.shiro.subject.support.DefaultSubjectContext;
+import com.thx.common.security.UserContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -45,17 +39,11 @@ import java.util.*;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
 
-    private final SessionDAO sessionDAO;
-
-    private final SessionManager sessionManager;
-
-    private final CacheManager cacheManager;
-
     private final UserMapper userMapper;
 
     private final UserRoleMapper userRoleMapper;
 
-    private final MyShiroRealm shiroRealm;
+    private final PasswordService passwordService;
 
 
     @Override
@@ -113,49 +101,77 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public List<UserOnlineVo> selectOnlineUsers(UserOnlineVo userVo) {
-        // 因为我们是用redis实现了shiro的session的Dao,而且是采用了shiro+redis这个插件
-        // 所以从spring容器中获取redisSessionDAO
-        // 来获取session列表.
-        Collection<Session> sessions = sessionDAO.getActiveSessions();
-        Iterator<Session> it = sessions.iterator();
+        // Sa-Token 中，每个登录账号对应一个 Account-Session，其 TerminalList 里
+        // 每一条代表该账号的一次登录（一个 token / 一个终端）。这里遍历所有账号会话，
+        // 再展开各自的终端，即可得到全部在线会话，等价于原先遍历 Shiro SessionDAO 的效果。
+        // 被挤下线/踢下线的终端会被 Sa-Token 自动移除，
+        // 因此不再需要像原实现那样手工判断 kickout 标记。
         List<UserOnlineVo> onlineUserList = new ArrayList<>();
-        // 遍历session
-        while (it.hasNext()) {
-            // 这是shiro已经存入session的
-            // 现在直接取就是了
-            Session session = it.next();
-            //标记为已提出的不加入在线列表
-            if (session.getAttribute("kickout") != null) {
+        List<String> sessionIds = StpUtil.searchSessionId("", 0, -1, false);
+        for (String sessionId : sessionIds) {
+            SaSession session = StpUtil.getSessionBySessionId(sessionId);
+            if (session == null) {
                 continue;
             }
-            UserOnlineVo onlineUser = getSessionBo(session);
-            if (onlineUser != null) {
-                /*用户名搜索*/
-                if (StrUtil.isNotBlank(userVo.getUsername())) {
-                    if (onlineUser.getUsername().contains(userVo.getUsername())) {
-                        onlineUserList.add(onlineUser);
-                    }
-                } else {
-                    onlineUserList.add(onlineUser);
-                }
+            Object userObj = session.get(UserContext.USER_SESSION_KEY);
+            if (!(userObj instanceof User user)) {
+                continue;
+            }
+            /*用户名搜索*/
+            if (StrUtil.isNotBlank(userVo.getUsername())
+                    && (user.getUsername() == null || !user.getUsername().contains(userVo.getUsername()))) {
+                continue;
+            }
+            for (SaTerminalInfo terminal : session.getTerminalList()) {
+                onlineUserList.add(toOnlineVo(user, terminal));
             }
         }
         return onlineUserList;
     }
 
+    /**
+     * 强制指定会话下线。
+     * <p>
+     * 参数名沿用历史签名中的 {@code sessionId}，在 Sa-Token 下其实是该次登录的 token 值
+     * （由在线用户列表返回）。这里用 kickout 而非 logout，两者都会让对方失去登录态，
+     * 区别是 kickout 会让被踢者下次请求时收到"已被踢下线"的明确提示，
+     * 与原 Shiro KickoutSessionControlFilter 的语义一致。
+     *
+     * @param sessionId 目标会话的 token 值
+     * @param username  目标用户名，仅用于日志与兼容旧签名
+     */
     @Override
     public void kickout(Serializable sessionId, String username) {
-        getSessionBysessionId(sessionId).setAttribute("kickout", true);
-        //读取缓存,找到并从队列中移除
-        Cache<String, Deque<Serializable>> cache = cacheManager.getCache(CoreConst.SHIRO_REDIS_CACHE_NAME);
-        Deque<Serializable> deques = cache.get(username);
-        for (Serializable deque : deques) {
-            if (sessionId.equals(deque)) {
-                deques.remove(deque);
-                break;
-            }
+        if (sessionId == null) {
+            return;
         }
-        cache.put(username, deques);
+        StpUtil.kickoutByTokenValue(sessionId.toString());
+    }
+
+    /**
+     * 把 Sa-Token 的会话信息组装成前端需要的在线用户视图对象。
+     */
+    private UserOnlineVo toOnlineVo(User user, SaTerminalInfo terminal) {
+        String tokenValue = terminal.getTokenValue();
+        UserOnlineVo userBo = new UserOnlineVo();
+        userBo.setUsername(user.getUsername());
+        //主机的ip地址
+        userBo.setHost(user.getLoginIpAddress());
+        //会话标识：Sa-Token 下用 token 值，踢人时按它定位会话
+        userBo.setSessionId(tokenValue);
+        //最后登录时间
+        userBo.setLastLoginTime(user.getLastLoginTime());
+        //本次登录（该终端）的创建时间，对应原 Shiro Session 的 startTimestamp
+        userBo.setStartTime(new Date(terminal.getCreateTime()));
+        // 剩余有效期：Sa-Token 返回秒（-1 表示永不过期），这里统一换算成毫秒以保持前端展示口径不变
+        long timeoutSeconds = StpUtil.getStpLogic().getTokenTimeout(tokenValue);
+        userBo.setTimeout(timeoutSeconds < 0 ? timeoutSeconds : timeoutSeconds * 1000);
+        // 说明：Sa-Token 不记录"最后一次交互时间"（Shiro Session 有 lastAccessTime）。
+        // 这里退化为该终端的登录时间，避免前端字段为空；如需精确值需自行在拦截器里维护。
+        userBo.setLastAccess(new Date(terminal.getCreateTime()));
+        //列表中展示的都是仍然在线的会话
+        userBo.setSessionStatus(false);
+        return userBo;
     }
 
     @Override
@@ -178,7 +194,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userForm.setCreateTime(date);
         userForm.setUpdateTime(date);
         userForm.setLastLoginTime(date);
-        PasswordHelper.encryptPassword(userForm);
+        userForm.setPassword(passwordService.encode(userForm.getPassword()));
         int num = register(userForm);
         if (num > 0) {
             return ResultUtil.success("添加用户成功");
@@ -198,7 +214,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (!changePasswordVo.getNewPassword().equals(changePasswordVo.getConfirmNewPassword())) {
             return ResultUtil.error("两次密码输入不一致");
         }
-        User principal = (User) SecurityUtils.getSubject().getPrincipal();
+        User principal = UserContext.getCurrentUser();
         if (principal == null) {
             return ResultUtil.error("登录状态已失效，请重新登录");
         }
@@ -206,62 +222,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (loginUser == null) {
             return ResultUtil.error("当前用户不存在");
         }
-        User newUser = CopyUtil.getCopy(loginUser, User.class);
-        String sysOldPassword = loginUser.getPassword();
-        newUser.setPassword(changePasswordVo.getOldPassword());
-        String entryOldPassword = PasswordHelper.getPassword(newUser);
-        if (!sysOldPassword.equals(entryOldPassword)) {
+        // 校验旧密码：passwordService 会自动识别该用户当前是 BCrypt 还是历史 md5 格式
+        if (!passwordService.matches(loginUser, changePasswordVo.getOldPassword())) {
             return ResultUtil.error("您输入的旧密码有误");
         }
-        newUser.setPassword(changePasswordVo.getNewPassword());
-        PasswordHelper.encryptPassword(newUser);
+        User newUser = CopyUtil.getCopy(loginUser, User.class);
+        // 新密码一律用 BCrypt 编码（BCrypt 自带随机盐，无需再维护 salt 字段）
+        newUser.setPassword(passwordService.encode(changePasswordVo.getNewPassword()));
         updateById(newUser);
-        // 清除登录缓存，否则旧密码在 Shiro 认证缓存过期前依然能登录成功
-        List<String> userIds = new ArrayList<>();
-        userIds.add(loginUser.getUserId());
-        shiroRealm.removeCachedAuthenticationInfo(userIds);
+        // 改密后强制该账号所有端下线，必须重新用新密码登录。
+        // 原实现是清 Shiro 的认证缓存（避免旧密码在缓存过期前仍可用），
+        // Sa-Token 不缓存密码，但会话里存着旧的用户快照，直接登出更彻底也更安全。
+        StpUtil.logout(loginUser.getUserId());
         return ResultUtil.success("修改密码成功");
     }
-
-    private Session getSessionBysessionId(Serializable sessionId) {
-        return sessionManager.getSession(new DefaultSessionKey(sessionId));
-    }
-
-    private static UserOnlineVo getSessionBo(Session session) {
-        //获取session登录信息。
-        Object obj = session.getAttribute(DefaultSubjectContext.PRINCIPALS_SESSION_KEY);
-        if (null == obj) {
-            return null;
-        }
-        //确保是 SimplePrincipalCollection对象。
-        if (obj instanceof SimplePrincipalCollection) {
-            SimplePrincipalCollection spc = (SimplePrincipalCollection) obj;
-            obj = spc.getPrimaryPrincipal();
-            if (obj instanceof User) {
-                User user = (User) obj;
-                //存储session + user 综合信息
-                UserOnlineVo userBo = new UserOnlineVo();
-                //最后一次和系统交互的时间
-                userBo.setLastAccess(session.getLastAccessTime());
-                //主机的ip地址
-                userBo.setHost(user.getLoginIpAddress());
-                //session ID
-                userBo.setSessionId(session.getId().toString());
-                //最后登录时间
-                userBo.setLastLoginTime(user.getLastLoginTime());
-                //回话到期 ttl(ms)
-                userBo.setTimeout(session.getTimeout());
-                //session创建时间
-                userBo.setStartTime(session.getStartTimestamp());
-                //是否踢出
-                userBo.setSessionStatus(false);
-                /*用户名*/
-                userBo.setUsername(user.getUsername());
-                return userBo;
-            }
-        }
-        return null;
-    }
-
 
 }
