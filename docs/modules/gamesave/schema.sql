@@ -1,5 +1,5 @@
 -- 仅限全新开发环境初始化。生产环境和已有数据库禁止执行本文件，
--- 正式升级必须使用 src/main/resources/db/migration 下的 Flyway 迁移。
+-- 正式升级必须使用 cms-app/src/main/resources/db/migration 下的 Flyway 迁移。
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 

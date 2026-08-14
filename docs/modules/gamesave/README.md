@@ -15,7 +15,7 @@ GameSave 是 CMS 内的游戏存档服务模块，负责独立账号、设备认
 5. 发布 CMS 后注册一个 GameSave 账号，完成一次上传、快照提交和对象下载验证。
 
 > `schema.sql` 是本模块结构的唯一事实来源，始终代表最新结构，并含有建表前的清理语句（`DROP TABLE IF EXISTS`）。
-> **已有数据的环境禁止执行它**——那会清空业务数据；已有环境的结构变更一律走 Flyway，见 `src/main/resources/db/migration/README.md`。
+> **已有数据的环境禁止执行它**——那会清空业务数据；已有环境的结构变更一律走 Flyway，见 `cms-app/src/main/resources/db/migration/README.md`。
 
 ## 认证与设备
 

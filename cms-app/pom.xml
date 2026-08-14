@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.thx</groupId>
+        <artifactId>cms-parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>cms-app</artifactId>
+    <packaging>jar</packaging>
+
+    <name>cms-app</name>
+    <description>启动模块：启动类、统一装配（WebMvc/MyBatis-Plus/Redis/WebSocket/ErrorPage）、配置、静态资源、可执行 Jar</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.thx</groupId>
+            <artifactId>cms-kernel</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.thx</groupId>
+            <artifactId>cms-file</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.thx</groupId>
+            <artifactId>cms-payment</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.thx</groupId>
+            <artifactId>cms-gamesave</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.thx</groupId>
+            <artifactId>cms-platform</artifactId>
+        </dependency>
+
+        <!--Web 基础依赖：Spring MVC + 内置 Tomcat-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!--WebSocket 支持：WebSocketConfig 注册 STOMP 端点-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+        <!--Thymeleaf 模板引擎：渲染 classpath:/templates/ 下的页面-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <!--Spring Data Redis：RedisConfig 提供 RedisTemplate/RedisCacheManager-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        <!--Actuator：/actuator/health 健康检查端点，部署脚本靠它判断是否就绪-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <!--生成 @ConfigurationProperties 元数据，供 IDE 编写 yml 配置时自动提示-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-configuration-processor</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!--MySQL 驱动-->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+        </dependency>
+        <!--Flyway：结构变更迁移（db/migration）-->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+        <!--Druid 数据库连接池：application*.yml 中 spring.datasource.type/spring.datasource.druid.* 依赖其自动配置-->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid-spring-boot-3-starter</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!--Spring Boot 测试基础依赖（JUnit5 + Mockito + Spring Test）-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!--固定产物名为 cms.jar：Dockerfile 与 deploy.sh 都按这个名字复制构建结果，
+            改名会同时破坏镜像构建，需一并调整-->
+        <finalName>cms</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <!--Lombok 只在编译期生成代码，不需要打进运行时 jar-->
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

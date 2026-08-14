@@ -209,7 +209,7 @@ public class SomeController {
 }
 ```
 
-真实参考实现见 [UploadController](../../src/main/java/com/thx/module/admin/controller/UploadController.java)：
+真实参考实现见 [UploadController](../../cms-platform/src/main/java/com/thx/module/admin/controller/file/UploadController.java)：
 `/attachment/upload` 用 `attachment` namespace（私有附件，归属当前登录用户），
 `/attachment/uploadForEditor` 用 `article-image` namespace（公开文章配图，无需 ownerId）。
 
@@ -229,7 +229,7 @@ public class SomeController {
 | `cms.file-system.storage.minio.endpoint`（`MINIO_ENDPOINT`） | 服务器自己：`putObject`/`removeObject`/启动时的 Bucket 存在性检查 | 只要服务器能访问到就行，内网地址、容器内地址都可以，追求速度 |
 | `cms.file-system.public-domain`（`MINIO_PUBLIC_DOMAIN`） | 生成 PUBLIC 文件直链、生成私有文件 Presigned URL 的 host | 必须是最终打开链接的人（浏览器、其他 App、手机）能直接访问到的地址 |
 
-对应实现在 [MinioObjectStorageClient](../../src/main/java/com/thx/module/file/storage/MinioObjectStorageClient.java)：
+对应实现在 [MinioObjectStorageClient](../../cms-file/src/main/java/com/thx/module/file/storage/MinioObjectStorageClient.java)：
 内部维护两个 `MinioClient`，一个用 `endpoint` 构造（给 `put`/`delete` 用），
 另一个用 `public-domain` 构造（只给 `presignGet` 用），两者共用同一套
 Access Key / Secret Key，构造过程本身不需要真的连上那个地址（生成 Presigned URL

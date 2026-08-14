@@ -12,7 +12,7 @@
 | 当前模块划分 | 包级划分：`com.thx.module.{admin,agent,blog,file,tools}`，无 Maven 子模块边界 |
 | 数据库 | **MySQL**（不是 PostgreSQL）。生产环境固定 5.7（见 `docs/modules/platform/server-configuration.md`），本地开发机为 8.0.34。因此所有 SQL 必须按 **MySQL 5.7 兼容**编写（不能用 `SELECT ... SKIP LOCKED`、窗口函数、CTE 等 8.0 专属语法） |
 | ORM | MyBatis-Plus 3.5.5，Mapper XML 放在 `resources/mapper/*.xml`，也允许纯注解 Mapper（`file` 模块已是纯注解风格），全局 `id-type: auto` |
-| Schema 管理 | **已引入 Flyway**（`src/main/resources/db/migration/V*.sql`，启动时自动迁移），本文档早期版本记载的"不引入 Flyway"已不再成立。历史上的 `docs/modules/<模块>/*.sql` 手工安装脚本（`cms.sql`、`file_system.sql`、`payment/schema.sql`）仍保留作为整库初始化参考，但**新增的表结构变更应写成 Flyway 迁移脚本** |
+| Schema 管理 | **已引入 Flyway**（`cms-app/src/main/resources/db/migration/V*.sql`，启动时自动迁移），本文档早期版本记载的"不引入 Flyway"已不再成立。历史上的 `docs/modules/<模块>/*.sql` 手工安装脚本（`cms.sql`、`file_system.sql`、`payment/schema.sql`）仍保留作为整库初始化参考，但**新增的表结构变更应写成 Flyway 迁移脚本** |
 | 鉴权 | **Sa-Token**（不是 Spring Security；原 Apache Shiro 已于 2026-08 迁移下线，原因是 shiro-redis 停止维护并把项目锁死在 Jedis 3.3.0）。登录态与会话存 Redis；免登录路径通过 `@AnonymousAccess` 注解 + `AnonymousPathScanner` 动态扫描注册，无需手工维护 URL 白名单 |
 | Redis | `spring-data-redis` 的 `RedisTemplate<String,Object>`（Jackson 序列化），**没有 Redisson**，客户端为 Lettuce；**已无 Jedis 依赖**（随 shiro-redis 一起移除） |
 | 统一返回体 | `com.thx.module.admin.vo.base.ResponseVo<T>`（`status/msg/data`），配套 `ResultUtil` 静态工厂；`ResponseStatus` 枚举提供常用状态码，但 `ResponseVo.error(int status, String msg)` 支持任意自定义 HTTP 语义状态码 |

@@ -1,4 +1,4 @@
-/target/
+target/
 
 ### IntelliJ IDEA ###
 .idea
@@ -6,5 +6,6 @@
 *.iml
 *.ipr
 
-/log/
-/logs/
+# 运行时日志（任意模块目录下都可能生成，统一忽略）
+log/
+logs/

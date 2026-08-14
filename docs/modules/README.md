@@ -25,7 +25,7 @@ mysql --default-character-set=utf8mb4 -u root -p cms < docs/modules/gamesave/sch
 > `Incorrect string value`。
 
 **已有环境不要执行这些脚本**——它们含 `DROP TABLE IF EXISTS`，会清空业务数据。
-已有环境的结构变更一律走 Flyway，规范见 [`src/main/resources/db/migration/README.md`](../../src/main/resources/db/migration/README.md)。
+已有环境的结构变更一律走 Flyway，规范见 [`cms-app/src/main/resources/db/migration/README.md`](../../cms-app/src/main/resources/db/migration/README.md)。
 
 ### 两类脚本的分工
 

@@ -45,18 +45,18 @@
    ```
 4. 安装`Redis`：最低版本支持 3.2
 5. 安装`MinIO`（文件上传/存储依赖）：本地开发默认指向 `http://localhost:9000`，也可以通过环境变量 `MINIO_ENDPOINT`/`MINIO_ACCESS_KEY`/`MINIO_SECRET_KEY` 指向已有实例
-6. 修改(`resources/application-dev.yml`)配置文件
+6. 修改(`cms-app/src/main/resources/application-dev.yml`)配置文件
     1. 修改数据库连接串、用户名和密码(可搜索`datasource`)
     2. redis 配置(可搜索`redis`)
 7. 运行项目(三种方式)
-    1. 项目根目录下执行`mvn clean package -DskipTests`编译打包，然后执行`java -jar target/cms.jar`
-    2. 项目根目录下执行`mvn spring-boot:run`
-    3. 直接运行`SpringbootApplication.java`
+    1. 项目根目录下执行`mvn clean package -DskipTests`编译打包，然后执行`java -jar cms-app/target/cms.jar`
+    2. 项目根目录下执行`mvn -pl cms-app spring-boot:run`
+    3. 直接运行`cms-app/src/main/java/com/thx/SpringbootApplication.java`
 8. 前台首页，浏览器访问`http://localhost:8080`
 9. 后台首页，浏览器访问`http://localhost:8080/admin`使用账号密码admin,123456登录系统后台。
 
 > 数据库结构变更请勿再直接改初始化脚本：已有环境走 Flyway 迁移，规范见
-> [`src/main/resources/db/migration/README.md`](src/main/resources/db/migration/README.md)。
+> [`cms-app/src/main/resources/db/migration/README.md`](cms-app/src/main/resources/db/migration/README.md)。
 
 ## 部署
 
@@ -88,46 +88,53 @@
 
 ## 代码结构
 
-后台管理页面早已从传统的 Thymeleaf 多页面重构为 Vue 3 单页应用，下面是当前实际的目录结构（并非历史文档描述的老架构）：
+项目是 **Maven 模块化单体（modular monolith）**：拆成 6 个 Maven 模块，但只部署一个 `cms.jar`、一个容器。
+模块依赖方向固定为 `cms-app → cms-platform → cms-file → cms-kernel`、`cms-gamesave → cms-file`、`cms-payment → cms-kernel`，
+Maven 在编译期阻止跨模块的错误引用。
 
 ```
-├── main
-│   ├── java
-│   │   └── com
-│   │       └── thx
-│   │           ├── SpringbootApplication.java 项目启动类
-│   │           ├── common     基础设施层：注解、拦截器、日志、Sa-Token 集成、通用工具类等，
-│   │           │              被各业务 module 依赖，不反向依赖任何 module
-│   │           ├── infra      项目级基础设施组件（邮件发送、WebSocket 推送、匿名路径扫描等）
-│   │           ├── enums      全局枚举（响应状态码、站点配置 key 等）
-│   │           ├── exception  全局异常处理
-│   │           └── module
-│   │               ├── admin  后台管理业务：controller 按业务域分了 article/auth/site/file/system
-│   │               │          五个子包，entity/mapper/service 对应内容管理与 RBAC 权限模型
-│   │               ├── blog   前台博客 API，复用 admin 模块的数据层，自己不维护 entity/mapper
-│   │               ├── file   独立的文件系统子模块：基于 MinIO 对象存储 + Apache Tika 文件类型
-│   │               │          嗅探，有自己的响应体/异常处理，是有意保持松耦合的模块边界
-│   │               ├── tools  独立小工具（PDF 转 Word、OCR 识别等），部分接口对接外部 Python 服务
-│   │               └── agent  供外部 AI Agent/自动化客户端调用的 API 网关层（/agent/api/**），
-│   │                          走独立的 X-API-Key 鉴权，不走 Sa-Token 会话
-│   └── resources
-│       ├── application-dev.yml 开发环境配置文件
-│       ├── application-prd.yml 生产环境配置文件
-│       ├── application.yml     通用配置文件
-│       ├── logback-spring.xml  日志配置文件
-│       ├── mapper              MyBatis XML 文件
-│       ├── static
-│       │   ├── admin-app       后台管理 Vue 3 + Element Plus 单页应用（无构建步骤，纯静态文件）
-│       │   ├── blog-app        前台博客 Vue 3 单页应用
-│       │   ├── css / img / js / libs  前后台共用的静态资源、第三方类库
-│       │   └── theme           前台主题相关资源
-│       └── templates           仍由 Thymeleaf 服务端渲染的少数页面
-│           ├── error           403/404/500 等错误页
-│           ├── home/fragments  前台公共导航片段
-│           └── system          登录/注册/踢出页面
-└── test
-    └── java
-        └── com
-            └── thx
-                └── ...          单元测试，与 main 下的包结构一一对应
+├── pom.xml                   cms-parent 聚合 POM（只管理版本，不声明依赖）
+├── cms-kernel                内核：纯公共类型/异常/工具/基础契约
+│   └── src/main/java/com/thx
+│       ├── common/annotation  @AnonymousAccess 等
+│       ├── common/holder     SpringContextHolder
+│       ├── common/util       JsonUtil/UUIDUtil/DateUtil/Pagination/ResultUtil 等
+│       ├── common/vo         ResponseVo/PageResultVo/BaseVo/BaseConditionVo（通用响应体）
+│       ├── enums             响应状态码、站点配置 key
+│       └── exception         ApiException
+├── cms-file                  文件系统：MinIO 对象存储 + Tika 类型嗅探 + App/Scope 独立认证 + REST API
+│   └── src/main/java/com/thx/module/file
+├── cms-payment               支付：支付宝渠道/支付/退款/通知/对账，稳定 api 包（PaymentFacade）
+│   └── src/main/java/com/thx/module/payment
+├── cms-gamesave              游戏存档：账号/设备/存档对象/快照，直接调用 cms-file 的 Java Service
+│   └── src/main/java/com/thx/module/gamesave
+├── cms-platform              平台层：admin（内容+权限后台）+ blog（前台 API）+ agent（运维 API 网关）
+│   │                         + tools（小工具）+ 平台安全实现（common.security 等）
+│   └── src/main/java/com/thx
+│       ├── module/admin | blog | agent | tools | platform/observability
+│       ├── common/security|interceptor|log|config/properties  平台安全/日志/拦截器
+│       ├── infra            邮件发送、WebSocket 推送、匿名路径扫描
+│       └── exception        ExceptionHandleController 全局异常处理
+└── cms-app                   启动模块：启动类、统一装配（WebMvc/MyBatis-Plus/Redis/WebSocket/ErrorPage）、
+    │                         全部配置与静态资源，产出可执行 cms.jar
+    ├── src/main/java/com/thx/SpringbootApplication.java
+    └── src/main/resources
+        ├── application-dev.yml / application-prd.yml / application.yml
+        ├── logback-spring.xml
+        ├── mapper             MyBatis XML 文件
+        ├── db/migration       Flyway 迁移脚本
+        ├── static             admin-app / blog-app 两个 Vue 单页应用及公共静态资源
+        └── templates          Thymeleaf 服务端渲染页面（error / home / system）
 ```
+
+常用命令：
+
+```bash
+mvn clean package -DskipTests        # 全量打包，产物 cms-app/target/cms.jar
+mvn -pl cms-app -am package          # 只构建 app 及其依赖
+mvn -pl cms-payment -am test         # 只验证 payment 模块（及其依赖模块）的单元测试
+mvn test -pl cms-kernel,cms-file,cms-payment,cms-gamesave,cms-platform   # 全部库模块单元测试（无需外部基础设施）
+```
+
+> 需要完整应用上下文的集成测试（`@SpringBootTest`）统一放在 `cms-app/src/test`，需要本地/CI 提供 MySQL、Redis、MinIO。
+> 库模块的测试是纯单元测试（Mockito），可以脱离外部依赖单独运行。
