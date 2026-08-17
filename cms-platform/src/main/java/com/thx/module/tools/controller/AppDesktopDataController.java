@@ -1,5 +1,6 @@
 package com.thx.module.tools.controller;
 
+import com.thx.common.annotation.AnonymousAccess;
 import com.thx.common.vo.ResponseVo;
 import com.thx.module.tools.entity.AppDesktopData;
 import com.thx.module.tools.service.AppDesktopDataService;
@@ -14,6 +15,9 @@ import java.util.List;
  * 应用桌面条目管理接口。
  * 对前台"工具箱/应用桌面"页面展示的应用快捷方式（名称 + 跳转地址 + 图标，见 {@link AppDesktopData}）
  * 提供基础的查询 / 新增 / 更新 / 删除能力，逻辑很薄，直接透传给 {@link AppDesktopDataService}。
+ * <p>
+ * 查询接口匿名放行（应用桌面数据供未登录访客查看，见 {@link AnonymousAccess}），
+ * 新增 / 更新 / 删除需要登录（匿名路径列表不再放行 /tools/api/**，由 Sa-Token 统一拦截）。
  */
 @Slf4j
 @RestController
@@ -24,8 +28,9 @@ public class AppDesktopDataController implements Serializable {
     private AppDesktopDataService appDesktopDataService;
 
     /**
-     * 查询全部应用桌面条目
+     * 查询全部应用桌面条目（匿名可访问）
      */
+    @AnonymousAccess
     @GetMapping("/appDesktopData")
     public ResponseVo<List<AppDesktopData>> appDesktopData() {
         List<AppDesktopData> list = appDesktopDataService.list();

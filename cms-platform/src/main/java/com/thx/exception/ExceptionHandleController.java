@@ -93,10 +93,17 @@ public class ExceptionHandleController {
     }
 
     /**
-     * 判断是否为 Ajax 请求，判定方式与原 KickoutSessionControlFilter 保持一致。
+     * 判断是否为 Ajax/JSON 请求，判定方式与原 KickoutSessionControlFilter 保持一致。
+     * 除 X-Requested-With 外，也识别显式声明 {@code Accept: application/json} 的请求
+     * （首页等跨域场景用 fetch 调用接口时不会带 X-Requested-With，但会声明 Accept），
+     * 这类请求同样返回 user_status=300 JSON 而不是重定向登录页。
      */
     private boolean isAjaxRequest(HttpServletRequest request) {
-        return "XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"));
+        if ("XMLHttpRequest".equalsIgnoreCase(request.getHeader("X-Requested-With"))) {
+            return true;
+        }
+        String accept = request.getHeader("Accept");
+        return accept != null && accept.contains("application/json");
     }
 
     /** {@link ApiException} 走 JSON 响应而不是页面跳转，供纯 REST 风格的接口（如 tools/agent 模块）使用 */

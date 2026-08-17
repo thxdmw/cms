@@ -86,7 +86,14 @@ public class UrlPermissionRuleService {
         // 导致 deploy.sh 的健康检查永远失败、每次部署都误判为故障并回滚。
         // 只放行 health 这一个端点；其它 actuator 端点已在 application.yml 中关闭暴露。
         patterns.add("/actuator/health");
-        patterns.add("/tools/api/**");
+        // /tools/api 下不再整体匿名放行：应用桌面数据的增/改/删（appDesktopData/add、/update、/delete）
+        // 改为要求登录，由下方兜底的 checkLogin 统一拦截；查询接口（GET appDesktopData）通过
+        // @AnonymousAccess 注解按"方法 + URI"精确放行，PDF/OCR 工具接口保持匿名（按 IP 限流、不依赖会话）。
+        patterns.add("/tools/api/pdf-to-word");
+        patterns.add("/tools/api/pdf-to-word/remaining-count");
+        patterns.add("/tools/api/ocr/image-to-text");
+        patterns.add("/tools/api/ocr/image-to-text-detailed");
+        patterns.add("/tools/api/ocr/remaining-count");
         // 文件系统 /api/v1/files/** 不走会话认证，改由 FileAuthInterceptor 做 API Key 认证
         patterns.add("/api/v1/files/**");
         // GameSave 使用独立的设备 Token，交由 GameDeviceTokenInterceptor 返回 JSON 认证结果
