@@ -49,6 +49,14 @@ public class SaTokenConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SaInterceptor(handle -> {
+            // 0. CORS 预检请求（OPTIONS）不做登录鉴权，统一放行交由 Spring CORS 处理器应答。
+            // 否则跨域调用受保护接口（如 /currentUser、/tools/api/appDesktopData/add）时，
+            // 未登录的预检请求会被下方 checkLogin 拦截，异常处理将其变成 302 / 无 CORS 头，
+            // 浏览器会报 "Response to preflight request doesn't pass access control check"。
+            if ("OPTIONS".equalsIgnoreCase(SaHolder.getRequest().getMethod())) {
+                SaRouter.stop();
+            }
+
             // 1. 静态匿名放行路径
             SaRouter.match(urlPermissionRuleService.getAnonymousPatterns()).stop();
 
