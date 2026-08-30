@@ -32,10 +32,19 @@
 - 通用响应体一律用 `com.thx.common.vo.ResponseVo`（kernel）；`com.thx.module.admin.vo` 只放业务 VO。
 - 拦截器、安全类属于平台，不要放到 kernel 或 app。
 - 需要 Spring 装配的配置类（WebMvc/MyBatis/Redis/WebSocket）在 cms-app，平台只提供业务组件。
+- 博客助手只开放概览、搜索、详情、分类标签和发布五类契约；响应不得直接返回完整业务实体，避免泄露无关字段并减少模型 Token。
+
+博客助手接口：
+
+- `GET /agent/api/blog/overview`
+- `GET /agent/api/blog/articles/search`
+- `GET /agent/api/blog/articles/{id}`
+- `GET /agent/api/blog/taxonomy`
+- `POST /agent/api/blog/articles`
 
 ## 测试
 
-单元测试（Mockito，无需外部依赖）：`src/test/java/com/thx/common/**`，共 6 个测试类。
+单元测试（Mockito，无需外部依赖）：`src/test/java/com/thx/common/**` 与 `src/test/java/com/thx/module/agent/**`。
 需要完整应用上下文的登录/密码升级集成测试在 `cms-app/src/test`。
 
 ## 以后拆分建议

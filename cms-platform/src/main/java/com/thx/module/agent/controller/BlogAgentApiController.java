@@ -25,7 +25,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * 供外部 AI Agent / 自动化客户端调用的博客读写接口（路径 /agent/api/blog/**）。
+ * 旧版博客 Agent 接口实现，仅保留源码用于迁移对照，不再注册为 Spring MVC 控制器。
+ * 对外接口已收敛到 {@link BlogAssistantApiController}。
  * <p>
  * 这不是给内部管理后台用的普通接口：请求需要在请求头带上 {@code X-API-Key}，由
  * {@link com.thx.common.interceptor.AgentApiAuthInterceptor} 统一拦截校验（配置项
@@ -37,8 +38,7 @@ import java.util.stream.Collectors;
  * {@link BizArticleService}/{@link BizCategoryService}/{@link BizTagsService}。
  */
 @Slf4j
-@RestController
-@RequestMapping("/agent/api/blog/")
+@Deprecated(forRemoval = true)
 @AllArgsConstructor
 public class BlogAgentApiController {
 
